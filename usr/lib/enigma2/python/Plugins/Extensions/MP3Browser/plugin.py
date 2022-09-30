@@ -1,8 +1,6 @@
-# uncompyle6 version 3.8.0
-# Python bytecode 2.7 (62211)
 # Decompiled from: Python 3.10.4 (main, Jun 29 2022, 12:14:53) [GCC 11.2.0]
-# Embedded file name: /usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/MP3Browser.py
-# Compiled at: 2016-12-27 15:15:13
+# spaces in use not tabs
+
 import datetime, os, socket, time
 import random
 from re import findall, search, split, sub, DOTALL
@@ -750,8 +748,8 @@ class mp3BrowserMetrix(Screen):
         for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
             for name in files:
                 if name.lower().endswith('.mp3'):
-                	if search(r'[\uD800-\uDFFF]', name) is not None:
-                		name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode("utf-8")	
+                    if search(r'[\uD800-\uDFFF]', name) is not None:
+                        name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode("utf-8")	
                     filename = os.path.join(root, name)
                     allfiles = allfiles + filename + ':::'
                     mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', name)
@@ -762,7 +760,7 @@ class mp3BrowserMetrix(Screen):
                             name = sub('\\.mp3|\\.MP3', '', name)
                             self.namelist.append(name)
                             audio = None
-	                        artist = album = number = track = year = genre = runtime = bitrate = " " 
+                            artist = album = number = track = year = genre = runtime = bitrate = " " 
                             try:
                                 audio = MP3(filename, ID3=EasyID3)
                                 if audio is not None:
