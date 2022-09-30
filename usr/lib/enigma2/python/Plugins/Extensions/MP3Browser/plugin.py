@@ -259,7 +259,7 @@ class mp3BrowserMetrix(Screen):
         self.skin = applySkinVars(mp3BrowserMetrix.skin, self.dict)
         Screen.__init__(self, session)
         self.fhd = False
-        self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()name
+        self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
         self.toogleHelp = self.session.instantiateDialog(helpScreen)
         self.showhelp = False
         self.hideflag = True
