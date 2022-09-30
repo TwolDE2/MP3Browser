@@ -1,0 +1,6425 @@
+# uncompyle6 version 3.8.0
+# Python bytecode 2.7 (62211)
+# Decompiled from: Python 3.10.4 (main, Jun 29 2022, 12:14:53) [GCC 11.2.0]
+# Embedded file name: /usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/MP3Browser.py
+# Compiled at: 2016-12-27 15:15:13
+import datetime, os, socket, time
+import random
+from re import findall, search, split, sub, DOTALL
+from mutagen.mp3 import MP3, HeaderNotFoundError
+from mutagen.id3 import ID3, ID3NoHeaderError
+from mutagen.easyid3 import EasyID3
+# , urllib.request, urllib.parse, urllib.error
+from urllib.parse import unquote_plus
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
+from urllib.parse import parse_qs
+
+from twisted.web import client, error
+from twisted.web.client import getPage, downloadPage
+
+from enigma import addFont, eConsoleAppContainer, eListboxPythonMultiContent, ePoint, eServiceReference, eSize, eTimer, getDesktop, gFont, gMainDC, iPlayableService, loadPic, loadPNG, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, RT_HALIGN_CENTER, RT_VALIGN_CENTER, RT_WRAP
+from Components.ActionMap import ActionMap
+from Components.config import config, configfile, ConfigDirectory, ConfigSlider, ConfigSubsection, ConfigSelection, getConfigListEntry
+from Components.ConfigList import ConfigListScreen
+from Components.FileList import FileList
+from Components.Label import Label
+from Components.Language import language
+from Components.MenuList import MenuList
+from Components.MultiContent import MultiContentEntryText
+from Components.Pixmap import Pixmap
+from Components.ScrollLabel import ScrollLabel
+from Components.ServiceEventTracker import ServiceEventTracker
+from Components.Slider import Slider
+from Components.Sources.List import List
+
+from Plugins.Plugin import PluginDescriptor
+from Screens.ChannelSelection import ChannelSelection
+from Screens.ChoiceBox import ChoiceBox
+from Screens.InfoBar import MoviePlayer
+from Screens.MessageBox import MessageBox
+from Screens.Screen import Screen
+from Screens.Standby import TryQuitMainloop
+from Screens.VirtualKeyBoard import VirtualKeyBoard
+from Tools.Directories import fileExists
+
+config.plugins.mp3browser = ConfigSubsection()
+lang = language.getLanguage()[:2]
+if lang == 'de':
+    config.plugins.mp3browser.language = ConfigSelection(default='de', choices=[('de', 'Deutsch'), ('en', 'Englisch'), ('es', 'Spanisch')])
+else:
+    if lang == 'es':
+        config.plugins.mp3browser.language = ConfigSelection(default='es', choices=[('es', 'Espanol'), ('de', 'Alemán'), ('en', 'Inglés')])
+    else:
+        config.plugins.mp3browser.language = ConfigSelection(default='en', choices=[('en', 'English'), ('de', 'German'), ('es', 'Spanish')])
+    if config.plugins.mp3browser.language.value == 'de':
+        config.plugins.mp3browser.background = ConfigSelection(default='background', choices=[('background', 'Hintergrund'), ('player', 'Media Player')])
+        config.plugins.mp3browser.showtv = ConfigSelection(default='show', choices=[('show', 'Anzeigen'), ('hide', 'Ausblenden')])
+        config.plugins.mp3browser.sortorder = ConfigSelection(default='artist', choices=[('artist', 'MP3 Interpret A-Z'), ('artist_reverse', 'MP3 Interpret Z-A'), ('album', 'MP3 Album Titel A-Z'), ('album_reverse', 'MP3 Album Titel Z-A'), ('track', 'MP3 Lied Titel A-Z'), ('track_reverse', 'MP3 Lied Titel Z-A'), ('genre', 'MP3 Genre A-Z'), ('genre_reverse', 'MP3 Genre Z-A'), ('year', 'MP3 Erscheinungsdatum Aufsteigend'), ('year_reverse', 'MP3 Erscheinungsdatum Absteigend'), ('date', 'MP3 Erstellungsdatum Aufsteigend'), ('date_reverse', 'MP3 Erstellungsdatum Absteigend'), ('folder', 'MP3 Ordner Aufsteigend'), ('folder_reverse', 'MP3 Ordner Absteigend'), ('runtime', 'MP3 Laufzeit Aufsteigend'), ('runtime_reverse', 'MP3 Laufzeit Absteigend')])
+        config.plugins.mp3browser.shuffle = ConfigSelection(default='no', choices=[('yes', 'Automatisch'), ('no', 'Taste 5')])
+        config.plugins.mp3browser.screensaver = ConfigSelection(default='no', choices=[('yes', 'Automatisch'), ('no', 'Taste 2')])
+        config.plugins.mp3browser.lastmp3 = ConfigSelection(default='yes', choices=[('yes', 'Ja'), ('no', 'Nein'), ('folder', 'Ordner Auswahl')])
+        config.plugins.mp3browser.lastfilter = ConfigSelection(default='no', choices=[('no', 'Nein'), ('yes', 'Ja')])
+        config.plugins.mp3browser.showfolder = ConfigSelection(default='no', choices=[('no', 'Nein'), ('yes', 'Ja')])
+        config.plugins.mp3browser.discogs = ConfigSelection(default='show', choices=[('show', 'Anzeigen'), ('hide', 'Ausblenden')])
+        config.plugins.mp3browser.font = ConfigSelection(default='yes', choices=[('yes', 'Ja'), ('no', 'Nein')])
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            config.plugins.mp3browser.plugin_size = ConfigSelection(default='full', choices=[('full', '1280x720'), ('normal', '1024x576')])
+        else:
+            config.plugins.mp3browser.plugin_size = ConfigSelection(default='normal', choices=[('full', '1280x720'), ('normal', '1024x576')])
+        config.plugins.mp3browser.fhd = ConfigSelection(default='no', choices=[('yes', 'Ja'), ('no', 'Nein')])
+        config.plugins.mp3browser.showinfo = ConfigSelection(default='info', choices=[('oninfo', 'Info Taste'), ('info', 'Zeige Info'), ('always', 'Zeige Info & Lyrics')])
+        config.plugins.mp3browser.metrixlist = ConfigSelection(default='all', choices=[('all', 'Interpret & Lied Titel'), ('artist', 'Interpret')])
+        config.plugins.mp3browser.autocheck = ConfigSelection(default='yes', choices=[('yes', 'Ja'), ('no', 'Nein')])
+        config.plugins.mp3browser.showmenu = ConfigSelection(default='no', choices=[('no', 'Nein'), ('yes', 'Ja')])
+        config.plugins.mp3browser.autoupdate = ConfigSelection(default='no', choices=[('no', 'Nein'), ('yes', 'Ja')])
+        config.plugins.mp3browser.paypal = ConfigSelection(default='yes', choices=[('no', 'Nein'), ('yes', 'Ja')])
+        config.plugins.mp3browser.reset = ConfigSelection(default='no', choices=[('no', 'Nein'), ('yes', 'Ja')])
+    else:
+        config.plugins.mp3browser.background = ConfigSelection(default='background', choices=[('background', 'Background'), ('player', 'Media Player')])
+        config.plugins.mp3browser.showtv = ConfigSelection(default='show', choices=[('show', 'Show'), ('hide', 'Hide')])
+        config.plugins.mp3browser.sortorder = ConfigSelection(default='artist', choices=[('artist', 'MP3 Artist A-Z'), ('artist_reverse', 'MP3 Artist Z-A'), ('album', 'MP3 Album Title A-Z'), ('album_reverse', 'MP3 Album Title Z-A'), ('track', 'MP3 Track Title A-Z'), ('track_reverse', 'MP3 Track Title Z-A'), ('genre', 'MP3 Genre A-Z'), ('genre_reverse', 'MP3 Genre Z-A'), ('year', 'MP3 Release Date Ascending'), ('year_reverse', 'MP3 Release Date Descending'), ('date', 'MP3 Creation Date Ascending'), ('date_reverse', 'MP3 Creation Date Descending'), ('folder', 'MP3 Folder Ascending'), ('folder_reverse', 'MP3 Folder Descending'), ('runtime', 'MP3 Runtime Ascending'), ('runtime_reverse', 'MP3 Runtime Descending')])
+        config.plugins.mp3browser.shuffle = ConfigSelection(default='no', choices=[('yes', 'Automatic'), ('no', 'Button 5')])
+        config.plugins.mp3browser.screensaver = ConfigSelection(default='no', choices=[('yes', 'Automatic'), ('no', 'Button 2')])
+        config.plugins.mp3browser.lastmp3 = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No'), ('folder', 'Folder Selection')])
+        config.plugins.mp3browser.lastfilter = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
+        config.plugins.mp3browser.showfolder = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
+        config.plugins.mp3browser.discogs = ConfigSelection(default='show', choices=[('show', 'Show'), ('hide', 'Hide')])
+        config.plugins.mp3browser.font = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No')])
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            config.plugins.mp3browser.plugin_size = ConfigSelection(default='full', choices=[('full', '1280x720'), ('normal', '1024x576')])
+        else:
+            config.plugins.mp3browser.plugin_size = ConfigSelection(default='normal', choices=[('full', '1280x720'), ('normal', '1024x576')])
+        config.plugins.mp3browser.fhd = ConfigSelection(default='no', choices=[('yes', 'Yes'), ('no', 'No')])
+        config.plugins.mp3browser.showinfo = ConfigSelection(default='info', choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')])  # toggle 0,1,2
+        config.plugins.mp3browser.metrixlist = ConfigSelection(default='all', choices=[('all', 'Artist & Track Title'), ('artist', 'Artist')])
+        config.plugins.mp3browser.autocheck = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No')])
+        config.plugins.mp3browser.showmenu = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
+        config.plugins.mp3browser.autoupdate = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
+        config.plugins.mp3browser.paypal = ConfigSelection(default='yes', choices=[('no', 'No'), ('yes', 'Yes')])
+        config.plugins.mp3browser.reset = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
+    config.plugins.mp3browser.style = ConfigSelection(default='coverwall', choices=[('coverwall', 'Coverwall'), ('metrix', 'Metrix')])
+    config.plugins.mp3browser.mp3folder = ConfigDirectory(default='/media/usb/')
+    config.plugins.mp3browser.cachefolder = ConfigSelection(default='/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', choices=[('/media/usb/mp3browser/cache', '/media/usb'), ('/media/hdd/mp3browser/cache', '/media/hdd'), ('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', 'Default')])
+    if config.plugins.mp3browser.font.value == 'yes':
+        try:
+            addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False)
+        except Exception as ex:
+            addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False, 0)
+
+    try:
+        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
+    except Exception as ex:
+        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False, 0)
+
+config.plugins.mp3browser.transparency = ConfigSlider(default=255, limits=(100, 255))
+config.plugins.mp3browser.hideupdate = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No')])
+config.plugins.mp3browser.cleanup = ConfigSelection(default='no', choices=[('no', '<Cleanup>'), ('no', '<Cleanup>')])
+config.plugins.mp3browser.backup = ConfigSelection(default='no', choices=[('no', '<Backup>'), ('no', '<Backup>')])
+config.plugins.mp3browser.restore = ConfigSelection(default='no', choices=[('no', '<Restore>'), ('no', '<Restore>')])
+config.plugins.mp3browser.color = ConfigSelection(default='#007895BC', choices=[
+ (
+  '#007895BC', 'Default'),
+ (
+  '#00F0A30A', 'Amber'),
+ (
+  '#00825A2C', 'Brown'),
+ (
+  '#007895BC', 'Camouflage'),
+ (
+  '#000050EF', 'Cobalt'),
+ (
+  '#00911D10', 'Crimson'),
+ (
+  '#001BA1E2', 'Cyan'),
+ (
+  '#00008A00', 'Emerald'),
+ (
+  '#0070AD11', 'Green'),
+ (
+  '#006A00FF', 'Indigo'),
+ (
+  '#00A4C400', 'Lime'),
+ (
+  '#00A61D4D', 'Magenta'),
+ (
+  '#0076608A', 'Mauve'),
+ (
+  '#006D8764', 'Olive'),
+ (
+  '#00C3461B', 'Orange'),
+ (
+  '#00F472D0', 'Pink'),
+ (
+  '#00E51400', 'Red'),
+ (
+  '#007A3B3F', 'Sienna'),
+ (
+  '#00647687', 'Steel'),
+ (
+  '#00149BAF', 'Teal'),
+ (
+  '#004176B6', 'Tufts'),
+ (
+  '#006C0AAB', 'Violet'),
+ (
+  '#00BF9217', 'Yellow')])
+config.plugins.mp3browser.metrixcolor = ConfigSelection(default='0x00000000', choices=[
+ (
+  '0x00000000', 'Skin Default'),
+ (
+  '0x00F0A30A', 'Amber'),
+ (
+  '0x007895BC', 'Blue'),
+ (
+  '0x00825A2C', 'Brown'),
+ (
+  '0x000050EF', 'Cobalt'),
+ (
+  '0x00911D10', 'Crimson'),
+ (
+  '0x001BA1E2', 'Cyan'),
+ (
+  '0x00008A00', 'Emerald'),
+ (
+  '0x0070AD11', 'Green'),
+ (
+  '0x006A00FF', 'Indigo'),
+ (
+  '0x00BB0048', 'Magenta'),
+ (
+  '0x0076608A', 'Mauve'),
+ (
+  '0x006D8764', 'Olive'),
+ (
+  '0x00C3461B', 'Orange'),
+ (
+  '0x00F472D0', 'Pink'),
+ (
+  '0x00E51400', 'Red'),
+ (
+  '0x007A3B3F', 'Sienna'),
+ (
+  '0x00647687', 'Steel'),
+ (
+  '0x00149BAF', 'Teal'),
+ (
+  '0x004176B6', 'Tufts'),
+ (
+  '0x006C0AAB', 'Violet'),
+ (
+  '0x00BF9217', 'Yellow')])
+
+def applySkinVars(skin, dict):
+    for key in list(dict.keys()):
+        try:
+            skin = skin.replace('{' + key + '}', dict[key])
+        except Exception as e:
+            print(e, '@key=', key)
+    return skin
+
+
+def transHTML(text):
+    text = text.replace('&nbsp;', ' ').replace('&szlig;', 'ss').replace('&quot;', '"').replace('&ndash;', '-').replace('&Oslash;', '').replace('&bdquo;', '"').replace('&ldquo;', '"').replace('&rsquo;', "'").replace('&gt;', '>').replace('&lt;', '<')
+    text = text.replace('&copy;.*', ' ').replace('&amp;', '&').replace('&uuml;', 'Ã¼').replace('&auml;', 'Ã¤').replace('&ouml;', 'Ã¶').replace('&eacute;', 'é').replace('&hellip;', '...').replace('&egrave;', 'è').replace('&agrave;', 'à')
+    text = text.replace('&Uuml;', 'Ue').replace('&Auml;', 'Ae').replace('&Ouml;', 'Oe').replace('&#034;', '"').replace('&#34;', '"').replace('&#38;', 'und').replace('&#039;', "'").replace('&#39;', "'").replace('&#133;', '...').replace('&#196;', 'Ã„').replace('&#214;', 'Ã–').replace('&#220;', 'Ãœ').replace('&#223;', 'ÃŸ').replace('&#228;', 'Ã¤').replace('&#246;', 'Ã¶').replace('&#252;', 'Ã¼')
+    return text
+
+
+def transCHARTLYRICS(text):
+    text = text.replace(' ', '+').replace('&', '+').replace('.', '+').replace(',', '+').replace("'", '').replace('(', '').replace(')', '').replace('[', '').replace(']', '').replace('!', '').replace(':', '').replace(';', '').replace('"', '').replace('|', '').replace('~', '').replace('?', '').replace('!', '')
+    return text
+
+
+def transLYRICSTIME(text):
+    text = text.replace(' ', '-').replace('.', '-').replace("'", '-').replace('&', 'and').replace(',', '').replace('(', '').replace(')', '').replace('[', '').replace(']', '').replace('!', '').replace(':', '').replace(';', '').replace('"', '').replace('|', '').replace('~', '').replace('?', '').replace('!', '').replace('---', '-').replace('--', '-')
+    return text
+
+
+def transDISCOGS(text):
+    text = text.replace('\\u00a0', ' ').replace('\\u0026', '&').replace('\\u003c', '<').replace('\\u003e', '>').replace('\\u00b4', '´').replace('\\u00e9', 'e').replace('\\u00e4', 'ä').replace('\\u00c4', 'Ä').replace('\\u00f6', 'ö').replace('\\u00d6', 'Ö').replace('\\u00fc', 'ü').replace('\\u00dc', 'Ü').replace('\\u00df', 'ß').replace('\\u20ac', '€').replace('\\u0024', '$').replace('\\u00a3', '£')
+    text = text.replace(b'\xa0', ' ').replace(b'\xa9', '©').replace(b'\xae', '®').replace(b'\xb7', '\\*').replace('\\u2002', ' ').replace('\\u2003', ' ').replace('\\u2009', ' ').replace('\\u2013', '-').replace('\\u2014', '--').replace('\\u2018', '"').replace('\\u2019', '"').replace('\\u201c', '"').replace('\\u201d', '"').replace('\\u2022', '•').replace('\\u2026', '...').replace('\\u2122', '™')
+    text = text.replace('[a=', '')
+    text = sub('\\[m=[0-9]+\\]', 'Album#', text)
+    text = sub('\\[.[0-9]+\\]', 'Artist#', text)
+    text = sub('\\[.*?\\]', '', text)
+    text = text.replace(']', '').replace('\\"', '"')
+    return text
+
+
+class mp3BrowserMetrix(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="1280,720" flags="wfNoBorder" title="  " >\n\t\t\t\t<widget name="metrixback" position="40,25" size="620,670" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t<widget name="metrixback2" position="660,40" size="570,640" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t<widget render="Label" source="global.CurrentTime" position="1088,43" size="140,60" font="Metrix;50" foregroundColor="#FFFFFF" halign="left" transparent="1" zPosition="3">\n\t\t\t\t\t<convert type="ClockToText">Default</convert>\n\t\t\t\t</widget>\n\t\t\t\t<widget render="Label" source="global.CurrentTime" position="916,54" size="161,27" font="{font};15" foregroundColor="#BBBBBB" halign="right" transparent="1" zPosition="3">\n\t\t\t\t\t<convert type="ClockToText">Format:%A</convert>\n\t\t\t\t</widget>\n\t\t\t\t<widget render="Label" source="global.CurrentTime" position="916,81" size="161,29" font="{font};16" foregroundColor="#BBBBBB" halign="right" transparent="1" zPosition="3">\n\t\t\t\t\t<convert type="ClockToText">Format:%e. %B</convert>\n\t\t\t\t</widget>\n\t\t\t\t<widget name="menu" position="579,655" size="81,40" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="info" position="1149,640" size="81,40" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="help" position="50,655" size="30,29" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="pvr" position="240,655" size="30,29" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="text" position="430,655" size="30,29" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="text1" position="85,654" size="150,30" font="Metrix;22" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="text2" position="275,654" size="150,30" font="Metrix;22" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="text3" position="465,654" size="150,30" font="Metrix;22" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="label" position="80,47" size="540,43" font="Metrix;35" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="label2" position="80,90" size="540,30" font="Metrix;22" foregroundColor="#BBBBBB" valign="center" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="label3" position="80,620" size="320,30" font="Metrix;22" foregroundColor="#BBBBBB" valign="center" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="list" position="80,125" size="540,490" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="yellow" position="50,649" size="30,46" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="red" position="240,649" size="30,46" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="green" position="430,649" size="30,46" alphatest="blend" transparent="1" zPosition="4" />\n\t\t\t\t<widget name="discogsartist" position="70,55" size="560,35" font="Metrix;28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="22" />\n\t\t\t\t<widget name="discogs" position="70,100" size="590,540" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="22" />\n\t\t\t\t<widget name="googlePoster" position="675,166" size="540,405" alphatest="blend" transparent="1" zPosition="22" />\n\t\t\t\t<widget name="poster" position="722,247" size="150,150" zPosition="23" transparent="1" alphatest="blend" />\n\t\t\t\t<widget name="posterback" position="675,200" size="245,245" zPosition="22" transparent="1" alphatest="on" />\n\t\t\t\t<widget name="name" position="675,120" size="540,70" font="Metrix;28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="5" />\n\t\t\t\t<widget name="Artist" position="950,210" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="6" />\n\t\t\t\t<widget name="artist" position="950,240" size="255,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />\n\t\t\t\t<widget name="Album" position="950,280" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="8" />\n\t\t\t\t<widget name="album" position="950,310" size="255,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="9" />\n\t\t\t\t<widget name="Year" position="950,350" size="100,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="10" />\n\t\t\t\t<widget name="year" position="950,380" size="100,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="11" />\n\t\t\t\t<widget name="Bitrate" position="1050,350" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="12" />\n\t\t\t\t<widget name="bitrate" position="1050,380" size="125,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="13" />\n\t\t\t\t<widget name="Runtime" position="950,420" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="14" />\n\t\t\t\t<widget name="runtime" position="950,450" size="125,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="15" />\n\t\t\t\t<widget name="Number" position="675,490" size="100,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="16" />\n\t\t\t\t<widget name="number" position="675,520" size="100,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="17" />\n\t\t\t\t<widget name="Track" position="775,490" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="18" />\n\t\t\t\t<widget name="track" position="775,520" size="440,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="19" />\n\t\t\t\t<widget name="Genre" position="675,560" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="20" />\n\t\t\t\t<widget name="genre" position="675,590" size="540,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="21" />\n\t\t\t</screen>'
+
+    def __init__(self, session, index, filter):
+        print("[MP3Browser][mp3BrowserMetrix] ")    
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(mp3BrowserMetrix.skin, self.dict)
+        Screen.__init__(self, session)
+        self.fhd = False
+        self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()name
+        self.toogleHelp = self.session.instantiateDialog(helpScreen)
+        self.showhelp = False
+        self.hideflag = True
+        self.fav = False
+        self.ready = False
+        self.autoupdate = False
+        self.filter = filter
+        self.index = index
+        self.toggle = 0
+        self.move = False if config.plugins.mp3browser.screensaver.value == 'no' else True
+        self.random = False if config.plugins.mp3browser.shuffle.value == 'no' else True
+        self.background = False if config.plugins.mp3browser.background.value == 'player' else True
+        self.showfolder = False if config.plugins.mp3browser.showfolder.value == 'no' else True
+        self.lang = config.plugins.mp3browser.language.value
+        self.playready = False
+        self.__event_tracker = ServiceEventTracker(screen=self, eventmap={iPlayableService.evEOF: self.nextMP3})
+        self.ABC = 'ABC'
+        self.artist = ''
+        self.artistold = ''
+        self.artistdisco = ''
+        self.track = ''
+        self.trackold = ''
+        self.profile = ''
+        self.lyrics = ''
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        if self.lang == 'de':
+            self['Artist'] = Label('Interpret:')
+            self['Number'] = Label('Titel#:')
+            self['Track'] = Label('Titel:')
+            self['Year'] = Label('Jahr:')
+            self['Runtime'] = Label('Laufzeit:')
+            self['text1'] = Label('Hilfe')
+            self['text2'] = Label('Update')
+            self['text3'] = Label('Editieren')
+        else:
+            self['Artist'] = Label('Artist:')
+            self['Number'] = Label('Track#:')
+            self['Track'] = Label('Track:')
+            self['Year'] = Label('Year:')
+            self['Runtime'] = Label('Runtime:')
+            self['text1'] = Label('Help')
+            self['text2'] = Label('Update')
+            self['text3'] = Label('Edit')
+        self['Album'] = Label('Album:')
+        self['Bitrate'] = Label('Bitrate:')
+        self['Genre'] = Label('Genre:')
+        self['name'] = Label()
+        self['artist'] = Label()
+        self['album'] = Label()
+        self['number'] = Label()
+        self['track'] = Label()
+        self['year'] = Label()
+        self['runtime'] = Label()
+        self['bitrate'] = Label()
+        self['genre'] = Label()
+        self['metrixback'] = Pixmap()
+        self['metrixback2'] = Pixmap()
+        self['poster'] = Pixmap()
+        self['posterback'] = Pixmap()
+        self['menu'] = Pixmap()
+        self['info'] = Pixmap()
+        self['help'] = Pixmap()
+        self['pvr'] = Pixmap()
+        self['text'] = Pixmap()
+        self['discogsartist'] = Label()
+        self['discogs'] = ScrollLabel()
+        self['googlePoster'] = Pixmap()
+        self['yellow'] = Pixmap()
+        self['red'] = Pixmap()
+        self['green'] = Pixmap()
+        self['label'] = Label()
+        self['label2'] = Label()
+        self['label3'] = Label()
+        self['list'] = ItemList([])
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'InfobarActions', 'InfobarTeletextActions', 'MovieSelectionActions', 'MoviePlayerActions', 'InfobarEPGActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'right': self.rightDown, 
+           'left': self.leftUp, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.zap, 
+           'prevBouquet': self.zap, 
+           'nextMarker': self.gotoABC, 
+           'prevMarker': self.gotoXYZ, 
+           'red': self.switchStyle, 
+           'yellow': self.showMP3, 
+           'green': self.showMP3, 
+           'blue': self.hideScreen, 
+           'contextMenu': self.config, 
+           'showEventInfo': self.toggleInfo, 
+           'EPGPressed': self.toggleInfo, 
+           'startTeletext': self.editDatabase, 
+           'showMovies': self.updateDatabase, 
+           'showRadio': self.deleteMP3, 
+           'leavePlayer': self.stop, 
+           '1': self.showMP3, 
+           '2': self.moveCovers, 
+           '3': self.makeFav, 
+           '4': self.showMP3, 
+           '5': self.shuffleMP3, 
+           '6': self.filterFolder, 
+           '7': self.filterArtist, 
+           '8': self.filterAlbum, 
+           '9': self.filterGenre, 
+           '0': self.gotoEnd, 
+           'bluelong': self.showHelp, 
+           'displayHelp': self.showHelp}, -1)
+        self.movie_stop = config.usage.on_movie_stop.value
+        self.movie_eof = config.usage.on_movie_eof.value
+        config.usage.on_movie_stop.value = 'quit'
+        config.usage.on_movie_eof.value = 'quit'
+        self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        self.favorites = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
+        self.lastfilter = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/filter'
+        self.lastfile = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/last'
+        print("[MP3Browser][mp3BrowserMetrix][onLayoutFinish] ")
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        self.version = '2.0py3'
+        if fileExists(self.database):
+            size = os.path.getsize(self.database)
+            if size < 10:
+                os.remove(self.database)
+        if config.plugins.mp3browser.metrixcolor.value == '0x00000000':
+            self.backcolor = False
+        else:
+            self.backcolor = True
+            self.back_color = int(config.plugins.mp3browser.metrixcolor.value, 16)
+        self.metrixBackPNG = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/metrix_back.png'
+        metrixBack = loadPic(self.metrixBackPNG, 620, 670, 3, 0, 0, 0)
+        self.metrixBack2PNG = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/metrix_back2.png'
+        metrixBack2 = loadPic(self.metrixBack2PNG, 570, 640, 3, 0, 0, 0)
+        if metrixBack != None and metrixBack2 != None:
+            self['metrixback'].instance.setPixmap(metrixBack)
+            self['metrixback2'].instance.setPixmap(metrixBack2)
+            self['metrixback'].show()
+            self['metrixback2'].show()
+        posterback = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/metrix_posterback.png'
+        PosterBack = loadPic(posterback, 245, 245, 3, 0, 0, 0)
+        self['posterback'].instance.setPixmap(PosterBack)
+        self['posterback'].show()
+        default_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default.png'
+        defaultfolder_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default_folder.png'
+        key_menu = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_menu.png'
+        key_info = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_info.png'
+        key_help = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_help.png'
+        key_pvr = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_pvr.png'
+        key_text = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_text.png'
+        key_yellow = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_yellow.png'
+        key_red = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_red.png'
+        key_green = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/key_green.png'
+        Key_menu = loadPic(key_menu, 81, 40, 3, 0, 0, 0)
+        Key_info = loadPic(key_info, 81, 40, 3, 0, 0, 0)
+        Key_help = loadPic(key_help, 30, 29, 3, 0, 0, 0)
+        Key_pvr = loadPic(key_pvr, 30, 29, 3, 0, 0, 0)
+        Key_text = loadPic(key_text, 30, 29, 3, 0, 0, 0)
+        Key_yellow = loadPic(key_yellow, 30, 46, 3, 0, 0, 0)
+        Key_red = loadPic(key_red, 30, 46, 3, 0, 0, 0)
+        Key_green = loadPic(key_green, 30, 46, 3, 0, 0, 0)
+        self['menu'].instance.setPixmap(Key_menu)
+        self['info'].instance.setPixmap(Key_info)
+        self['help'].instance.setPixmap(Key_help)
+        self['pvr'].instance.setPixmap(Key_pvr)
+        self['text'].instance.setPixmap(Key_text)
+        self['yellow'].instance.setPixmap(Key_yellow)
+        self['red'].instance.setPixmap(Key_red)
+        self['green'].instance.setPixmap(Key_green)
+        self['yellow'].hide()
+        self['red'].hide()
+        self['green'].hide()
+        if config.plugins.mp3browser.showtv.value == 'hide':
+            self.session.nav.stopService()
+        self.coverTimer = eTimer()
+        self.coverTimer.callback.append(self.startMoveCovers)
+        if fileExists(self.database):
+            if self.index == 0:
+                if config.plugins.mp3browser.lastfilter.value == 'yes':
+                    self.filter = open(self.lastfilter).read()
+                if config.plugins.mp3browser.lastmp3.value == 'yes':
+                    mp3 = open(self.lastfile).read()
+                    if mp3.endswith('...'):
+                        self.index = -1
+                    else:
+                        mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+                        data = open(self.database).read()
+                        count = 0
+                        for line in data.split('\n'):
+                            if self.filter in line:
+                                if search(mp3, line) is not None:
+                                    self.index = count
+                                    break
+                                count += 1
+
+                elif config.plugins.mp3browser.lastmp3.value == 'folder' and self.showfolder == True:
+                    self.index = -1
+            self.reset = False
+            self.makeMP3BrowserTimer = eTimer()
+            if config.plugins.mp3browser.autoupdate.value == 'yes' and os.path.exists(config.plugins.mp3browser.mp3folder.value):
+                self.autoupdate = True
+                self.makeMP3BrowserTimer.callback.append(self.database_return(True))
+            else:
+                self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
+            self.makeMP3BrowserTimer.start(500, True)
+        else:
+            self.openTimer = eTimer()
+            self.openTimer.callback.append(self.openInfo)
+            self.openTimer.start(500, True)
+        return
+
+    def openInfo(self):
+        if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
+            if self.lang == 'de':
+                self.session.openWithCallback(self.reset_return, MessageBox, 'Die MP3 Browser Datenbank wird jetzt neu erstellt. Je nach Anzahl der MP3s kann dies mehrere Minuten dauern.\n\nSoll die Datenbank jetzt erstellt werden?', MessageBox.TYPE_YESNO)
+            else:
+                self.session.openWithCallback(self.reset_return, MessageBox, 'The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?', MessageBox.TYPE_YESNO)
+        elif self.lang == 'de':
+            self.session.openWithCallback(self.first_return, MessageBox, 'Bevor die Datenbank neu erstellt wird, überprüfen Sie Ihre Einstellungen im Setup des Plugins:\n\n- Kontrollieren Sie den Pfad zum MP3 Ordner\n- Ändern Sie den Cache Ordner auf Ihre Festplatte oder USB Stick.', MessageBox.TYPE_YESNO)
+        else:
+            self.session.openWithCallback(self.first_return, MessageBox, 'Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.', MessageBox.TYPE_YESNO)
+
+    def first_return(self, answer):
+        if answer is True:
+            open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3BrowserConfig)
+        else:
+            self.close()
+
+    def reset_return(self, answer):
+        if answer is True:
+            self.reset = True
+            if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
+                os.remove('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset')
+            open(self.database, 'w').close()
+            self.makeMP3BrowserTimer = eTimer()
+            self.resetTimer = eTimer()
+            self.resetTimer.callback.append(self.database_return(True))
+            self.resetTimer.start(500, True)
+        else:
+            self.close()
+
+    def makeMP3(self, filter):
+        print("[MP3Browser][makeMP3] ..................makeMP3 entered")    
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        self.filter = filter
+        if fileExists(self.database):
+            f = open(self.database, 'r')
+            print("[MP3Browser][makeMP3] ..................makeMP3 found DB")            
+            for line in f:
+                if filter in line:
+                    try:           
+                        name = filename = date = artist = album = number = track = year = genre = runtime = bitrate = " "                
+                        poster = 'http://sites.google.com/site/kashmirplugins/home/mp3-browser/default.png'
+                        mp3line = line.split(':::')
+                        if mp3line == " " or len(mp3line)  < 2:
+                            pass
+                        name = mp3line[0]
+                        filename = mp3line[1]
+                        date = mp3line[2]
+                        artist = mp3line[3]
+                        album = mp3line[4]
+                        number = mp3line[5]
+                        track = mp3line[6]
+                        year = mp3line[7]
+                        genre = mp3line[8]
+                        runtime = mp3line[9]
+                        bitrate = mp3line[10]
+                        poster = mp3line[11]
+                    except IndexError as e:
+                        print("[MP3Browser][makeMP3] index", e)
+                    self.namelist.append(name)
+                    self.mp3list.append(filename)
+                    self.datelist.append(date)
+                    self.artistlist.append(artist)
+                    self.albumlist.append(album)
+                    self.numberlist.append(number)
+                    self.tracklist.append(track)
+                    self.yearlist.append(year)
+                    self.genrelist.append(genre)
+                    self.runtimelist.append(runtime)
+                    self.bitratelist.append(bitrate)
+                    self.posterlist.append(poster)                        
+            f.close()
+            if self.showfolder == True:
+                if self.lang == 'de':
+                    self.namelist.append('<Liste der MP3 Ordner>')
+                else:
+                    self.namelist.append('<List of MP3 Folder>')
+                self.mp3list.append(config.plugins.mp3browser.mp3folder.value + '...')
+                self.datelist.append('')
+                self.artistlist.append('')
+                self.albumlist.append('')
+                self.numberlist.append('')
+                self.tracklist.append('')
+                self.yearlist.append('')
+                self.genrelist.append('')
+                self.runtimelist.append('')
+                self.bitratelist.append('')
+                self.posterlist.append('http://sites.google.com/site/kashmirplugins/home/mp3-browser/default_folder.png')
+            self.maxentry = len(self.namelist)
+            self.makeList()
+            if self.ready == True:
+                self.makePoster()
+                self.makeInfo()
+
+
+    def makeList(self):
+        print("[MP3Browser][makeList]1 entered")    
+        f = open(self.database, 'r')
+        mp3s = []
+        if config.plugins.mp3browser.metrixlist.value == 'all':
+            for line in f:
+                if self.filter in line:
+                    mp3line = line.split(':::')
+                    try:
+                        res = [
+                         '']
+                        mp3 = mp3line[3] + ' - ' + mp3line[6]
+                        if len(mp3) > 47:
+                            if mp3[46:47] == ' ':
+                                mp3 = mp3[0:46]
+                            else:
+                                mp3 = mp3[0:47] + 'FIN'
+                                mp3 = sub(' \\S+FIN', '', mp3)
+                            mp3 = str(mp3) + ' ...'
+                        if self.backcolor == True:
+                            res.append(MultiContentEntryText(pos=(0, 0), size=(540,
+                                                                               40), font=26, color=16777215, color_sel=16777215, backcolor_sel=self.back_color, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text=mp3))
+                        else:
+                            res.append(MultiContentEntryText(pos=(0, 0), size=(540,
+                                                                               40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text=mp3))
+                        mp3s.append(res)
+                    except IndexError as e:
+                        print("[MP3Browser][ makeList1] Indexerror",  e)
+
+        else:
+            for line in f:
+                if self.filter in line:
+                    mp3line = line.split(':::')
+                    try:
+                        res = [
+                         '']
+                        mp3 = mp3line[3]
+                        if self.backcolor == True:
+                            res.append(MultiContentEntryText(pos=(0, 0), size=(540,
+                                                                               40), font=26, color=16777215, color_sel=16777215, backcolor_sel=self.back_color, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text=mp3))
+                        else:
+                            res.append(MultiContentEntryText(pos=(0, 0), size=(540,
+                                                                               40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text=mp3))
+                        mp3s.append(res)
+                    except IndexError as e:
+                        print("[MP3Browser][makeList]1 Indexerror",  e)
+
+        f.close()
+        if self.showfolder == True:
+            res = [
+             '']
+            if self.backcolor == True:
+                if self.lang == 'de':
+                    res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, backcolor_sel=self.back_color, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<Liste der MP3 Ordner>'))
+                else:
+                    res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, backcolor_sel=self.back_color, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<List of MP3 Folder>'))
+            elif self.lang == 'de':
+                res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<Liste der MP3 Ordner>'))
+            else:
+                res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<List of MP3 Folder>'))
+            mp3s.append(res)
+        self['list'].l.setList(mp3s)
+        self['list'].l.setFont(26, gFont('Metrix', 26))
+        self['list'].l.setItemHeight(35)
+        self['list'].moveToIndex(self.index)
+
+# toggle 0,1,2 choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')        
+        if self.toggle == 1:
+            self.hideList()
+            self.getLyrics()
+        elif self.toggle == 2:
+            self.hideInfo()
+            self.getDiscogs()
+        self.totalMP3 = len(mp3s)
+        self.totalItem = len(mp3s)
+        self.ready = True if self.totalMP3 != 0 else False
+        print("[MP3Browser][makeList] totalMP3, totalItem",  self.totalMP3, "   ", self.totalItem)        
+        if self.showfolder == True:
+            self.totalMP3 -= 1
+        fav = 'Favoriten' if self.lang == 'de' else 'Favourites'
+        free = 'freier Speicher' if self.lang == 'de' else 'free Space'
+        folder = 'Ordner' if self.lang == 'de' else 'Folder'
+        if os.path.exists(config.plugins.mp3browser.mp3folder.value):
+            stat = os.statvfs(config.plugins.mp3browser.mp3folder.value)
+            freeSize = stat.f_bsize * stat.f_bfree // 1024 // 1024 // 1024
+            if self.fav == False:
+                titel = '%s MP3s' % str(self.totalMP3)
+            else:
+                titel = '%s MP3 %s' % (str(self.totalMP3), fav)
+            titel2 = '(MP3 %s: %s GB %s)' % (folder, str(freeSize), free)
+            self['label'].setText(titel)
+            self['label2'].setText(titel2)
+            self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+        else:
+            if self.fav == False:
+                titel = '%s MP3s' % str(self.totalMP3)
+            else:
+                titel = '%s MP3 %s' % (str(self.totalMP3), fav)
+            titel2 = '(MP3 %s offline)' % folder
+            self['label'].setText(titel)
+            self['label2'].setText(titel2)
+            self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+
+    def updateDatabase(self):
+        if self.ready == True:
+            if self.lang == 'de':
+                if os.path.exists(config.plugins.mp3browser.mp3folder.value) and os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                    self.session.openWithCallback(self.database_return, MessageBox, '\nMP3 Browser Datenbank aktualisieren?', MessageBox.TYPE_YESNO)
+                elif os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                    self.session.open(MessageBox, '\nMP3 Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Aktualisierung abgebrochen.' % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+                else:
+                    self.session.open(MessageBox, '\nCache Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Aktualisierung abgebrochen.' % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+            elif os.path.exists(config.plugins.mp3browser.mp3folder.value) and os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                self.session.openWithCallback(self.database_return, MessageBox, '\nUpdate MP3 Browser Database?', MessageBox.TYPE_YESNO)
+            elif os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                self.session.open(MessageBox, '\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled.' % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled.' % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+
+    def database_return(self, answer):
+        if answer is True:
+            self.ready = False
+            try:
+                mp3 = self.mp3list[self.index]
+                f = open(self.lastfile, 'w')
+                f.write(mp3)
+                f.close()
+            except IndexError as e:
+                print("[MP3Browser][database_return] Indexerror",  e)
+
+            if fileExists(self.database):
+                self.runTimer = eTimer()
+                self.runTimer.callback.append(self.database_run)
+                self.runTimer.start(500, True)
+
+    def database_run(self):
+        if config.plugins.mp3browser.hideupdate.value == 'yes':
+            self.hideScreen()
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        self.orphaned = 0
+        if self.fav == True:
+            self.fav = False
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        data = open(self.database).read()
+        allfiles = ':::'
+        folder = config.plugins.mp3browser.mp3folder.value
+        for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
+            for name in files:
+                if name.lower().endswith('.mp3'):
+                	if search(r'[\uD800-\uDFFF]', name) is not None:
+                		name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode(utf-8")	
+                    filename = os.path.join(root, name)
+                    allfiles = allfiles + filename + ':::'
+                    mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', name)
+                    if search(mp3, data) is None:
+                        if name.lower().endswith('.mp3'):
+                            self.mp3list.append(filename)
+                            self.datelist.append(str(datetime.datetime.now()))
+                            name = sub('\\.mp3|\\.MP3', '', name)
+                            self.namelist.append(name)
+                            audio = None
+	                        artist = album = number = track = year = genre = runtime = bitrate = " " 
+                            try:
+                                audio = MP3(filename, ID3=EasyID3)
+                                if audio is not None:
+                                    album = audio.get('album', ['n/a'])[0]
+                                    artist = audio.get('artist', ['n/a'])[0]
+                                    number = audio.get('tracknumber', ['n/a'])[0].split('/')[0]
+                                    track = audio.get('title', [name])[0]
+                                    genre = audio.get('genre', ['n/a'])[0]
+                                    year = audio.get('date', ['n/a'])[0]
+                                    runtime = str(datetime.timedelta(seconds=int(audio.info.length)))
+                                    bitrate = str(audio.info.bitrate // 1000)
+                                    bitrate = bitrate + ' kbit/s'
+                            except (HeaderNotFoundError, ID3NoHeaderError) as e:
+                                artist = name
+                                track = 'Missing ID3 Header'
+                                album = 'Missing ID3 Header'
+                                genre = 'Missing ID3 Header'
+
+                            self.albumlist.append(album)
+                            self.artistlist.append(artist)
+                            self.numberlist.append(number)
+                            self.tracklist.append(track)
+                            self.genrelist.append(genre)
+                            self.yearlist.append(year)
+                            self.runtimelist.append(runtime)
+                            self.bitratelist.append(bitrate)
+                            posterurl = 'http://sites.google.com/site/kashmirplugins/home/mp3-browser/default.png'
+                            self.posterlist.append(posterurl)                            
+                            try:
+                                audio = ID3(filename)
+                                poster = audio.getall('APIC')
+                            except (HeaderNotFoundError, ID3NoHeaderError) as e:
+                                print("[MP3Browser][Database_run] ID3 Headernotfound",  e)                                
+                            if len(poster) > 0:
+                                mime = poster[0].mime
+                                if mime.lower().endswith('png'):
+                                    ext = '.png'
+                                else:
+                                    ext = '.jpg'
+                                posterurl = config.plugins.mp3browser.cachefolder.value + '/' + name + ext
+                                f = open(posterurl, 'wb')
+                                f.write(poster[0].data)
+                                f.close()
+                            self.posterlist.append(posterurl)
+
+        for line in data.split('\n'):
+            mp3line = line.split(':::')
+            mp3folder = ""
+            if mp3line == " " or len(mp3line) < 5:
+                break     
+            mp3folder = mp3line[1]
+            mp3folder = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3folder)
+
+            if search(config.plugins.mp3browser.mp3folder.value, mp3folder) is not None and search(mp3folder, allfiles) is None:
+                self.orphaned += 1
+                data = data.replace(line + '\n', '')
+
+        f = open(self.database, 'w')
+        f.write(data)
+        f.close()
+        del data
+        del allfiles
+        self.dbcount = 0
+        self.dbcountmax = len(self.mp3list)-1
+        if self.dbcountmax == 0:
+            self.finished_update(False)
+        else:
+            f = open(self.database, 'a')
+            while self.dbcount <= self.dbcountmax:
+                try:
+                    data = self.namelist[(self.dbcount)] + ':::' + self.mp3list[(self.dbcount)] + ':::' + self.datelist[(self.dbcount)] + ':::' + self.artistlist[(self.dbcount)] + ':::' + self.albumlist[(self.dbcount)] + ':::' + self.numberlist[(self.dbcount )] + ':::' + self.tracklist[(self.dbcount)] + ':::' + self.yearlist[(self.dbcount )] + ':::' + self.genrelist[(self.dbcount)] + ':::' + self.runtimelist[(self.dbcount)] + ':::' + self.bitratelist[(self.dbcount)] + ':::' + self.posterlist[(self.dbcount)] + ':::\n'
+                    f.write(data)
+                except IndexError as e:
+                    print("[MP3Browser][Database_run][write database]2 Indexerror",  e)
+                self.dbcount += 1
+
+            f.close()
+            self.sortDatabase()
+            if self.reset == True:
+                if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
+                    self.hideScreen()
+                self.session.openWithCallback(self.exit, mp3BrowserMetrix, 0, ':::')
+            else:
+                self.finished_update(True)
+        return
+
+    def finished_update(self, found):
+        print("[MP3Browser][finished_update]")     
+        if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
+            self.hideScreen()
+        mp3 = open(self.lastfile).read()
+        mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+        data = open(self.database).read()
+        count = 0
+        for line in data.split('\n'):
+            if self.filter in line:
+                if search(mp3, line) is not None:
+                    self.index = count
+                    break
+                count += 1
+
+        if self.autoupdate == True:
+            self.autoupdate = False
+            self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
+        elif found == False and self.orphaned == 0:
+            if self.lang == 'de':
+                self.session.open(MessageBox, '\nKeine neuen MP3s gefunden:\nIhre Datenbank ist aktuell.', MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\nNo new MP3s found:\nYour Database is up to date.', MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        elif found == False:
+            if self.lang == 'de':
+                if self.orphaned == 1:
+                    self.session.open(MessageBox, '\nKeine neuen MP3s gefunden.\n%s verwaister Datenbank Eintrag gelöscht.' % str(self.orphaned), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\nKeine neuen MP3s gefunden.\n%s verwaiste Datenbank Einträge gelöscht.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            elif self.orphaned == 1:
+                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entry deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        elif self.orphaned == 0:
+            if self.lang == 'de':
+                if self.dbcountmax == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\n%s MP3s in die Datenbank importiert.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        else:
+            if self.lang == 'de':
+                if self.dbcountmax == 1 and self.orphaned == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.\n%s verwaister Datenbank Eintrag gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                elif self.dbcountmax == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.\n%s verwaiste Datenbank Einträge gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                elif self.orphaned == 1:
+                    self.session.open(MessageBox, '\n%s MP3s in die DateMP3 Favnbank importiert.\n%s verwaister Datenbank Eintrag gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\n%s MP3s in die Datenbank importiert.\n%s verwaiste Datenbank Einträge gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1 and self.orphaned == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.orphaned == 1:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        return
+
+    def ok(self):
+        print("[MP3Browser][ok] self.ready",  self.ready)    
+        if self.ready == True:
+            try:
+                filename = self.mp3list[self.index]
+                if self.showfolder == True and filename.endswith('...'):
+                    self.filterFolder()
+                    return
+                sref = eServiceReference('4097:0:0:0:0:0:0:0:0:0:' + filename)
+                sref.setName(self.artistlist[self.index] + ' - ' + self.tracklist[self.index])
+                if self.background == True:
+                    self.playready = True
+                    self.session.nav.stopService()
+                    self.session.nav.playService(sref)
+                else:
+                    self.playready = True
+                    self.session.open(MoviePlayer, sref)
+                if self.move == True:
+                    self.coverTimer.stop()
+                    self.coverTimer.start(500, True)
+            except IndexError as e:
+                print("[MP3Browser][ok] Indexerror",  e)
+
+    def nextMP3(self):
+        print("[MP3Browser][nextMP3] self.ready",  self.ready)    
+        if self.playready == True:
+            if self.random == False:
+                self.index += 1
+            else:
+                self.index = random.randint(0, self.maxentry)
+            if self.index == self.maxentry:
+                self.index = 0
+            self.ok()
+            try:
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self['list'].moveToIndex(self.index)
+            except IndexError as e:
+                print("[MP3Browser][nextMP3] Indexerror",  e)
+            self.makePoster()
+            self.makeInfo()
+            
+# toggle 0,1,2 choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')            
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
+
+    def stop(self):
+        self.playready = False
+        if self.background == True:
+            self.session.nav.stopService()
+            self.session.nav.playService(self.oldService)
+        if self.move == True:
+            self.coverTimer.stop()
+
+    def deleteMP3(self):
+        if self.ready == True:
+            if self.toggle == 0:
+                try:
+                    name = self.namelist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\n%s wird aus der Datenbank und aus dem MP3 Ordner gelöscht!\n\nWollen Sie fortfahren?' % name, MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?' % name, MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deleteMP3   ] Indexerror",  e)
+
+            elif self.toggle == 1:
+                try:
+                    self.artist = self.artistlist[self.index]
+                    self.track = self.tracklist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nDie Lyrics zu %s - %s werden gelöscht!\n\nWollen Sie fortfahren?' % (self.artist, self.track), MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?' % (self.artist, self.track), MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deleteMP3   ] Indexerror",  e)
+
+            elif self.toggle == 2:
+                try:
+                    self.artist = self.artistlist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nDie Discogs Informationen und das Google Poster zu %s werden gelöscht!\n\nWollen Sie fortfahren?' % self.artist, MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?' % self.artist, MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deleteMP3   ] Indexerror",  e)
+
+    def delete_return(self, answer):
+        if answer is True:
+            if self.toggle == 0:
+                try:
+                    mp3 = self.mp3list[self.index]
+                    filename = sub('.*?[/]', '', mp3)
+                    lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+                    lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+                    lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+                    if fileExists(lyricsfile):
+                        os.remove(lyricsfile)
+                    if fileExists(mp3):
+                        os.remove(mp3)
+                    mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+                    data = open(self.database).read()
+                    for line in data.split('\n'):
+                        if search(mp3, line) is not None:
+                            data = data.replace(line + '\n', '')
+
+                    f = open(self.database, 'w')
+                    f.write(data)
+                    f.close()
+                    if self.index == self.maxentry - 1:
+                        self.index -= 1
+                    self.makeMP3(self.filter)
+                except IndexError as e:
+                    print("[MP3Browser][delete_return   ] Indexerror",  e)
+
+            elif self.toggle == 1:
+                try:
+                    filepath = self.mp3list[self.index]
+                    filename = sub('.*?[/]', '', filepath)
+                    lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+                    lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+                    lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+                    if fileExists(lyricsfile):
+                        os.remove(lyricsfile)
+                    artist = '%s - %s' % (self.artist, self.track)
+                    if len(artist) > 35:
+                        if artist[34:35] == ' ':
+                            artist = artist[0:34]
+                        else:
+                            artist = artist[0:35] + 'FIN'
+                            artist = sub(' \\S+FIN', '', artist)
+                        artist = artist + ' ...'
+                    self['discogsartist'].setText(str(artist))
+                    self['discogsartist'].show()
+                    self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+                    self['discogs'].setText(self.lyrics)
+                    self['discogs'].show()
+                except IndexError as e:
+                    print("[MP3Browser][ delete_return  ] Indexerror",  e)
+
+            elif self.toggle == 2:
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
+                posterpng = discogsfile.replace('.discogs', '.png')
+                posterbmp = discogsfile.replace('.discogs', '.bmp')
+                if fileExists(discogsfile):
+                    os.remove(discogsfile)
+                if fileExists(posterjpeg):
+                    os.remove(posterjpeg)
+                if fileExists(posterpng):
+                    os.remove(posterpng)
+                if fileExists(posterbmp):
+                    os.remove(posterbmp)
+                self['discogsartist'].setText('%s' % self.artist)
+                self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
+                self['discogs'].setText(self.profile)
+                self['googlePoster'].hide()
+                self.showInfo()
+        return
+
+    def renewCover(self):
+        return
+
+    def makeFav(self):
+        if self.ready == True:
+            if self.fav == False:
+                artist = self.artistlist[self.index]
+                track = self.tracklist[self.index]
+                self.session.openWithCallback(self.choiceFavFalse, ChoiceBox, title='MP3 Favourites', list=[('Open Favourites', 'open'), ('Edit Favourites', 'edit'), ('Add %s to Favourites' % (artist + ' - ' + track), 'add')])
+            else:
+                self.session.openWithCallback(self.choiceFavTrue, ChoiceBox, title='MP3 Favourites', list=[('Close Favourites', 'close'), ('Edit Favourites', 'edit')])
+
+    def choiceFavFalse(self, choice):
+        choice = choice and choice[1]
+        if choice == 'open':
+            self.fav = True
+            self.index = 0
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
+            self.makeMP3(self.filter)
+        elif choice == 'edit':
+            self.session.open(mp3Fav, False)
+        else:
+            f = open(self.favorites, 'a')
+            data = self.namelist[self.index] + ':::' + self.mp3list[self.index] + ':::' + self.datelist[self.index] + ':::' + self.artistlist[self.index] + ':::' + self.albumlist[self.index] + ':::' + self.numberlist[self.index] + ':::' + self.tracklist[self.index] + ':::' + self.yearlist[self.index] + ':::' + self.genrelist[self.index] + ':::' + self.runtimelist[self.index] + ':::' + self.bitratelist[self.index] + ':::' + self.posterlist[self.index] + ':::'
+            f.write(data)
+            f.write(os.linesep)
+            f.close()
+            self.session.open(mp3Fav, True)
+
+    def choiceFavTrue(self, choice):
+        choice = choice and choice[1]
+        if choice == 'close':
+            self.fav = False
+            self.index = 0
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+            self.makeMP3(self.filter)
+        elif choice == 'edit':
+            self.session.openWithCallback(self.returnFavEdit, mp3Fav, False)
+
+    def returnFavEdit(self, edit):
+        if edit is None:
+            pass
+        else:
+            self.index = 0
+            self.makeMP3(self.filter)
+        return
+
+    def switchStyle(self):
+        if self.ready == True:
+            self.ready = False
+            self.session.openWithCallback(self.returnStyle, switchScreen, 2, 'style')
+
+    def returnStyle(self, number):
+        if number is None or number == 1:
+            self.ready = True
+        elif number == 2:
+            if config.plugins.mp3browser.lastmp3.value == 'yes':
+                try:
+                    mp3 = self.mp3list[self.index]
+                    f = open(self.lastfile, 'w')
+                    f.write(mp3)
+                    f.close()
+                except IndexError as e:
+                    print("[MP3Browser][   ] Indexerror",  e)
+
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3Browser, self.index, self.filter)
+        return
+
+    def shuffleMP3(self):
+        if self.ready == True:
+            self.ready = False
+            if self.random == False:
+                self.session.openWithCallback(self.returnShuffleMP3, switchScreen, 2, 'shuffle')
+            else:
+                self.session.openWithCallback(self.returnShuffleMP3, switchScreen, 1, 'shuffle')
+
+    def returnShuffleMP3(self, number):
+        if number is None:
+            self.ready = True
+        elif number == 1:
+            self.random = False
+            self.ready = True
+        elif number == 2:
+            self.random = True
+            self.ready = True
+        return
+
+    def startMoveCovers(self):
+        try:
+            cover = self.posterlist[self.index]
+            cover = sub('.*?[/]', '', cover)
+            cover = config.plugins.mp3browser.cachefolder.value + '/' + cover
+            if fileExists(cover):
+                self.session.open(moveCover, cover)
+        except IndexError as e:
+            print("[MP3Browser][   ] Indexerror",  e)
+
+    def moveCovers(self):
+        if self.ready == True:
+            self.ready = False
+            if self.move == False:
+                self.session.openWithCallback(self.returnMoveCovers, switchScreen, 2, 'move')
+            else:
+                self.session.openWithCallback(self.returnMoveCovers, switchScreen, 1, 'move')
+
+    def returnMoveCovers(self, number):
+        if number is None:
+            self.ready = True
+        elif number == 1:
+            self.move = False
+            self.ready = True
+        elif number == 2:
+            self.move = True
+            self.ready = True
+            try:
+                cover = self.posterlist[self.index]
+                cover = sub('.*?[/]', '', cover)
+                cover = config.plugins.mp3browser.cachefolder.value + '/' + cover
+                if fileExists(cover):
+                    self.session.open(moveCover, cover)
+            except IndexError as e:
+                print("[MP3Browser][returnMoveCovers] Indexerror",  e)
+
+        return
+
+    def toggleInfo(self):
+        if self.ready == True:
+            if self.toggle == 0:
+                self.toggle = 1
+                self.hideList()
+                self.getLyrics()
+                self['yellow'].show()
+                self['red'].show()
+                self['green'].show()
+                self['text1'].setText(' ')
+                if self.lang == 'de':
+                    self['text2'].setText('Ansichten')
+                else:
+                    self['text2'].setText('Style')
+                self['text3'].setText(' ')
+            elif self.toggle == 1:
+                if config.plugins.mp3browser.discogs.value == 'show':
+                    self.toggle = 2
+                    self.hideInfo()
+                    self.getDiscogs()
+                else:
+                    self.toggle = 0
+                    self.hideDiscogs()
+                    self.showList()
+                    self.showInfo()
+                    if self.lang == 'de':
+                        self['text1'].setText('Hilfe')
+                        self['text2'].setText('Update')
+                        self['text3'].setText('Editieren')
+                    else:
+                        self['text1'].setText('Help')
+                        self['text2'].setText('Update')
+                        self['text3'].setText('Edit')
+            else:
+                self.toggle = 0
+                self.hideDiscogs()
+                self.showList()
+                self.showInfo()
+                if self.lang == 'de':
+                    self['text1'].setText('Hilfe')
+                    self['text2'].setText('Update')
+                    self['text3'].setText('Editieren')
+                else:
+                    self['text1'].setText('Help')
+                    self['text2'].setText('Update')
+                    self['text3'].setText('Edit')
+
+    def showDiscogs(self):
+        self['discogs'].show()
+        self['discogsartist'].show()
+        self['googlePoster'].show()
+        self['yellow'].show()
+        self['red'].show()
+        self['green'].show()
+
+    def showList(self):
+        self['label'].show()
+        self['label2'].show()
+        self['label3'].show()
+        self['list'].show()
+        self['help'].show()
+        self['pvr'].show()
+        self['text'].show()
+
+    def showInfo(self):
+        self['name'].show()
+        self['artist'].show()
+        self['Artist'].show()
+        self['album'].show()
+        self['Album'].show()
+        self['number'].show()
+        self['Number'].show()
+        self['track'].show()
+        self['Track'].show()
+        self['year'].show()
+        self['Year'].show()
+        self['runtime'].show()
+        self['Runtime'].show()
+        self['bitrate'].show()
+        self['Bitrate'].show()
+        self['genre'].show()
+        self['Genre'].show()
+        self['poster'].show()
+        self['posterback'].show()
+
+    def hideDiscogs(self):
+        self['discogsartist'].hide()
+        self['discogs'].hide()
+        self['googlePoster'].hide()
+        self['yellow'].hide()
+        self['red'].hide()
+        self['green'].hide()
+
+    def hideList(self):
+        self['label'].hide()
+        self['label2'].hide()
+        self['label3'].hide()
+        self['list'].hide()
+        self['help'].hide()
+        self['pvr'].hide()
+        self['text'].hide()
+
+    def hideInfo(self):
+        self['name'].hide()
+        self['artist'].hide()
+        self['Artist'].hide()
+        self['album'].hide()
+        self['Album'].hide()
+        self['number'].hide()
+        self['Number'].hide()
+        self['track'].hide()
+        self['Track'].hide()
+        self['year'].hide()
+        self['Year'].hide()
+        self['runtime'].hide()
+        self['Runtime'].hide()
+        self['bitrate'].hide()
+        self['Bitrate'].hide()
+        self['genre'].hide()
+        self['Genre'].hide()
+        self['poster'].hide()
+        self['posterback'].hide()
+
+    def makeInfo(self):
+        try:
+            name = self.artistlist[self.index] + ' - ' + self.tracklist[self.index]
+            if self.showfolder == True and name == ' - ':
+                if self.lang == 'de':
+                    self['name'].setText('<Liste der MP3 Ordner>')
+                else:
+                    self['name'].setText('<List of MP3 Folder>')
+                self['name'].show()
+                self['Artist'].hide()
+                self['artist'].hide()
+                self['Album'].hide()
+                self['album'].hide()
+                self['Number'].hide()
+                self['number'].hide()
+                self['Track'].hide()
+                self['track'].hide()
+                self['Year'].hide()
+                self['year'].hide()
+                self['Runtime'].hide()
+                self['runtime'].hide()
+                self['Bitrate'].hide()
+                self['bitrate'].hide()
+                self['Genre'].hide()
+                self['genre'].hide()
+                return
+            if len(name) > 63:
+                if name[62:63] == ' ':
+                    name = name[0:62]
+                else:
+                    name = name[0:63] + 'FIN'
+                    name = sub(' \\S+FIN', '', name)
+                name = name + '...'
+            self['name'].setText(str(name))
+            self['name'].show()
+            self.setTitle(str(name))
+        except IndexError as e:
+            self['name'].hide()
+
+        try:
+            artist = self.artistlist[self.index]
+            self['Artist'].show()
+            self['artist'].setText(artist)
+            self['artist'].show()
+        except IndexError as e:
+            self['Artist'].hide()
+            self['artist'].hide()
+
+        try:
+            album = self.albumlist[self.index]
+            self['Album'].show()
+            self['album'].setText(album)
+            self['album'].show()
+        except IndexError as e:
+            self['Album'].hide()
+            self['album'].hide()
+
+        try:
+            number = self.numberlist[self.index]
+            self['Number'].show()
+            self['number'].setText(number)
+            self['number'].show()
+        except IndexError as e:
+            self['Number'].hide()
+            self['number'].hide()
+
+        try:
+            track = self.tracklist[self.index]
+            self['Track'].show()
+            self['track'].setText(track)
+            self['track'].show()
+        except IndexError as e:
+            self['Track'].hide()
+            self['track'].hide()
+
+        try:
+            year = self.yearlist[self.index]
+            self['Year'].show()
+            self['year'].setText(year)
+            self['year'].show()
+        except IndexError as e:
+            self['Year'].hide()
+            self['year'].hide()
+
+        try:
+            runtime = self.runtimelist[self.index]
+            self['Runtime'].show()
+            self['runtime'].setText(runtime)
+            self['runtime'].show()
+        except IndexError as e:
+            self['Runtime'].hide()
+            self['runtime'].hide()
+
+        try:
+            bitrate = self.bitratelist[self.index]
+            self['Bitrate'].show()
+            self['bitrate'].setText(bitrate)
+            self['bitrate'].show()
+        except IndexError as e:
+            self['Bitrate'].hide()
+            self['bitrate'].hide()
+
+        try:
+            genres = self.genrelist[self.index]
+            self['Genre'].show()
+            self['genre'].setText(genres)
+            self['genre'].show()
+        except IndexError as e:
+            self['Genre'].hide()
+            self['genre'].hide()
+
+    def getLyrics(self):
+        self.ready = False
+        try:
+            self.artist = self.artistlist[self.index]
+            self.track = self.tracklist[self.index]
+        except IndexError as e:
+                print("[MP3Browser][makeLyrics] Indexerror",  e)
+                return                    
+        if self.artist == self.artistold and self.track == self.trackold:
+            artist = '%s - %s' % (self.artist, self.track)
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            self['discogsartist'].setText(str(artist))
+            self['discogsartist'].show()
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            self.ready = True
+        else:
+            self.artistold = self.artist
+            self.trackold = self.track
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            if fileExists(lyricsfile):
+                self.lyrics = open(lyricsfile).read()
+                self.lyrics = transHTML(self.lyrics)
+                artist = '%s - %s' % (self.artist, self.track)
+                if len(artist) > 35:
+                    if artist[34:35] == ' ':
+                        artist = artist[0:34]
+                    else:
+                        artist = artist[0:35] + 'FIN'
+                        artist = sub(' \\S+FIN', '', artist)
+                    artist = artist + ' ...'
+                self['discogsartist'].setText(str(artist))
+                self['discogsartist'].show()
+                self['discogs'].setText(self.lyrics)
+                self['discogs'].show()
+                self.ready = True
+            else:
+                self['discogsartist'].setText('')
+                self['discogs'].setText('')
+                artist = transCHARTLYRICS(self.artist.lower())
+                track = transCHARTLYRICS(self.track.lower())
+                url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=%s&song=%s' % (artist, track)
+                url = url.encode()
+                getPage(url).addCallback(self.makeLyrics).addErrback(self.downloadLyricsError)
+
+
+    def makeLyrics(self, output):
+        # print("[MP3Browser][makeLyrics] entered output is  ", output)
+        output = output.decode()    
+        lyrics = findall('<Lyric>(.*?)</Lyric>', output, flags=DOTALL)
+        if lyrics:
+            self.lyrics = lyrics[0].replace('amp;', '')
+            artist = '%s - %s' % (self.artist, self.track)
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            self['discogsartist'].setText(str(artist))
+            self['discogsartist'].show()
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            f = open(lyricsfile, 'w')
+            f.write(self.lyrics)
+            f.close()
+            self.ready = True
+        else:
+            artist = '%s - %s' % (self.artist, self.track)
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            self['discogsartist'].setText(str(artist))
+            self['discogsartist'].show()
+            self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
+            artistntrack = transLYRICSTIME(artistntrack)
+            url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
+            url = url.encode()
+            getPage(url).addCallback(self.makeLyricsTime).addErrback(self.downloadLyricsTimeError)
+
+    def makeLyricsTime(self, output):
+        output = output.decode()    
+        # print("[MP3Browser][makeLyricsTime] entered output is  ", output)    
+        lyrics = findall('<div id="songlyrics".*?<p>\r\n(.*?)</p>', output, flags=DOTALL)
+        if lyrics:
+            self.lyrics = lyrics[0].replace('\t<br />\n<br />\n', '').replace('<br />', '').replace('\t', '')
+            artist = '%s - %s' % (self.artist, self.track)
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            self['discogsartist'].setText(str(artist))
+            self['discogsartist'].show()
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            f = open(lyricsfile, 'w')
+            f.write(self.lyrics)
+            f.close()
+        else:
+            artist = '%s - %s' % (self.artist, self.track)
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            self['discogsartist'].setText(str(artist))
+            self['discogsartist'].show()
+            self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+        self.ready = True
+
+    def getDiscogs(self):
+        print("[MP3Browser][getDiscogs] Entered")   
+        self.ready = False
+        try:
+            self.artist = self.artistlist[self.index]
+        except IndexError as e:
+            print("[MP3Browser][getDiscogs] Index error", e)
+            return                   
+        if self.artist == self.artistdisco:
+            self['discogsartist'].setText('%s' % self.artist)
+            self['discogs'].setText(self.profile)
+            self['googlePoster'].show()
+            self.ready = True
+        else:
+            self.artistdisco = self.artist
+            self['discogsartist'].setText('%s' % self.artist)
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+            if fileExists(discogsfile):
+                self.profile = open(discogsfile).read()
+                self['discogs'].setText(self.profile)
+                self['discogs'].show()
+                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
+                posterpng = discogsfile.replace('.discogs', '.png')
+                posterbmp = discogsfile.replace('.discogs', '.bmp')
+                if fileExists(posterjpeg):
+                    Poster = loadPic(posterjpeg, 540, 405, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                elif fileExists(posterpng):
+                    Poster = loadPic(posterpng, 540, 405, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                elif fileExists(posterbmp):
+                    Poster = loadPic(posterbmp, 540, 405, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                self.ready = True
+            else:
+                self['discogsartist'].setText('')
+                self['discogs'].setText('')
+                self['googlePoster'].hide()
+                artist = self.artist.lower()
+                if artist.startswith('the '):
+                    artist = artist.replace('the ', '') + '%2C%20the'
+                artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
+                url = 'http://api.discogs.com/artist/' + artist
+                url = url.encode()
+                getPage(url).addCallback(self.makeDiscogs).addErrback(self.downloadDiscogsError)
+
+            self.ready = True
+
+    def makeDiscogs(self, output):
+        output = output.decode()   
+        print("[MP3Browser][makeDiscogs] Entered")     
+        if search('Artist not found', output) is not None:
+            self['discogsartist'].setText('%s' % self.artist)
+            print("[MP3Browser][makeDiscogs] Artist not found", self.profile)            
+            self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
+            self['discogs'].setText(self.profile)
+        else:
+            profile = findall('"profile": "(.*?)", "releases_url"', output)
+            members = findall('"members": \\[(.*?)\\],', output)
+            print("[MP3Browser][makeDiscogs] profile & members", profile, "   ", members)            
+            if profile and members:
+                self['discogsartist'].setText('%s' % self.artist)
+                profile = transDISCOGS(profile[0])
+                members = transDISCOGS(members[0])
+                members = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
+                self.profile = profile + '\n\n' + members
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+
+            elif profile:
+                self['discogsartist'].setText('%s' % self.artist)
+                self.profile = transDISCOGS(profile[0])
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+
+            elif members:
+                self['discogsartist'].setText('%s' % self.artist)
+                members = transDISCOGS(members[0])
+                self.profile = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+
+            else:
+                self['discogsartist'].setText('%s' % self.artist)
+                self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
+                self['discogs'].setText(self.profile)
+        print("[MP3Browser][getDiscogs] Exit profile = ", self.profile)                 
+        self.ready = True
+        return
+        
+
+    def makePoster(self):
+        print("[MP3Browser][makPoster] Entry self.index ", self.index)    
+        posterurl = self.posterlist[self.index]
+        poster = sub('.*?[/]', '', posterurl)
+        poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
+        print("[MP3Browser][makePoster]1 posterurl, poster",  posterurl, poster)        
+        if fileExists(poster):
+            Poster = loadPic(poster, 150, 150, 3, 0, 0, 0)
+            if Poster != None:
+                self['poster'].instance.setPixmap(Poster)
+        elif "default" in posterurl:
+            print("[MP3Browser][makePoster]1 found default in posterurl",  posterurl)
+            poster = defaultfolder_png if "default_folder" in posterurl else default_png
+            Poster = loadPic(poster, 150, 150, 3, 0, 0, 0)
+            if Poster != None:
+                self['poster'].instance.setPixmap(Poster)                 
+        elif search('http', posterurl) is not None:
+            print("[MP3Browser][makePoster]1 found http not default in posterurl",  posterurl)        
+            posterurl=posterurl.encode()
+            getPage(posterurl).addCallback(self.getPoster, poster).addErrback(self.downloadError)
+        else:
+            filename = self.mp3list[self.index]
+            audio = ID3(filename)
+            poster = audio.getall('APIC')
+            if len(poster) > 0:
+                f = open(posterurl, 'wb')
+                f.write(poster[0].data)
+                f.close()
+                Poster = loadPic(posterurl, 150, 150, 3, 0, 0, 0)
+                if Poster != None:
+                    self['poster'].instance.setPixmap(Poster)
+        return
+
+    def getPoster(self, output, poster):
+        output = output.decode()    
+        f = open(poster, 'wb')
+        f.write(output)
+        f.close()
+        Poster = loadPic(poster, 150, 150, 3, 0, 0, 0)
+        if Poster != None:
+            self['poster'].instance.setPixmap(Poster)
+        return
+
+    def down(self):
+        print("[MP3Browser][down] self.ready, self.toggle",  self.ready, "   ", self.toggle)    
+        if self.ready == True:
+            self['list'].down()
+            self.index = self['list'].getSelectedIndex()
+            print("[MP3Browser][down] self.index",  self.index)            
+            self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+            self.makePoster()
+            self.makeInfo()
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
+
+    def up(self):
+        print("[MP3Browser][up]self.ready , self.toggle",  self.ready, "   ", self.toggle)    
+        if self.ready == True:
+            self['list'].up()
+            self.index = self['list'].getSelectedIndex()
+            print("[MP3Browser][up] self.index",  self.index)            
+            self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+            self.makePoster()
+            self.makeInfo()
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
+
+    def rightDown(self):
+        print("[MP3Browser][rightDown] self.ready, self.toggle",  self.ready, "   ", self.toggle)    
+        if self.ready == True:
+            if self.toggle != 0:
+                self['discogs'].pageDown()
+            else:
+                self['list'].pageDown()
+                self.index = self['list'].getSelectedIndex()
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self.makePoster()
+                self.makeInfo()
+
+    def leftUp(self):
+        print("[MP3Browser][leftUp] self.ready, self.toggle",  self.ready, "   ", self.toggle)    
+        if self.ready == True:
+            if self.toggle != 0:
+                self['discogs'].pageUp()
+            else:
+                self['list'].pageUp()
+                self.index = self['list'].getSelectedIndex()
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self.makePoster()
+                self.makeInfo()
+
+    def gotoEnd(self):
+        print("[MP3Browser][gotoEnd] self.ready, self.index",  self.ready, "   ", self.index)    
+        if self.ready == True:
+            self.index = self.maxentry - 1
+            try:
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self['list'].moveToIndex(self.index)
+            except IndexError as e:
+                print("[MP3Browser][   ] Indexerror",  e)
+
+            self.makePoster()
+            self.makeInfo()
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
+
+    def showMP3(self):
+        print("[MP3Browser][showMP3] self.ready",  self.ready,)    
+        if self.ready == True:
+            mp3s = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                for line in f:
+                    if self.filter in line:
+                        mp3line = line.split(':::')
+                        try:
+                            mp3 = mp3line[3] + ' - ' + mp3line[6]
+                        except IndexError as e:
+                            mp3 = ' '
+
+                        if mp3 != ' ':
+                            mp3s = mp3s + mp3 + ':::'
+
+                if self.showfolder == True:
+                    if self.lang == 'de':
+                        mp3s = mp3s + '<Liste der MP3 Ordner>' + ':::'
+                    else:
+                        mp3s = mp3s + '<List of MP3 Folder>' + ':::'
+                self.mp3s = [ i for i in mp3s.split(':::') ]
+                self.mp3s.pop()
+                f.close()
+                self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
+
+    def gotoMP3(self, index):
+        print("[MP3Browser][gotoMP3] index",  index)    
+        if index is not None:
+            self.index = index
+            try:
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self['list'].moveToIndex(self.index)
+            except IndexError as e:
+                print("[MP3Browser][gotoMP3   ] Indexerror",  e)
+
+            self.makePoster()
+            self.makeInfo()
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
+        return
+
+    def gotoABC(self):
+        self.session.openWithCallback(self.enterABC, getABC, self.ABC, False)
+
+    def gotoXYZ(self):
+        self.session.openWithCallback(self.enterABC, getABC, self.ABC, True)
+
+    def enterABC(self, ABC):
+        if ABC is None:
+            pass
+        else:
+            self.ABC = ABC
+            ABC = ABC[0].lower()
+            try:
+                self.index = next(index for index, value in enumerate(self.artistlist) if value.lower().replace('der ', '').replace('die ', '').replace('das ', '').replace('the ', '').startswith(ABC))
+                try:
+                    self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                    self['list'].moveToIndex(self.index)
+                except IndexError as e:
+                    print("[MP3Browser]enterABC[   ] Indexerror",  e)
+
+                self.makePoster()
+                self.makeInfo()
+                if self.toggle == 1:
+                    self.hideList()
+                    self.getLyrics()
+                elif self.toggle == 2:
+                    self.hideInfo()
+                    self.getDiscogs()
+            except StopIteration as e:
+                print("[MP3Browser][enterABC] iteration errors",  e)
+        return
+
+    def filterFolder(self):
+        if self.ready == True:
+            max = 25
+            folder = config.plugins.mp3browser.mp3folder.value
+            self.folders = []
+            self.folders.append(folder[:-1])
+            for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
+                for name in dirs:
+                    folder = os.path.join(root, name)
+                    self.folders.append(folder)
+                    if len(folder) > max:
+                        max = len(folder)
+
+            self.folders.sort()
+            if self.lang == 'de':
+                self.session.openWithCallback(self.filter_return, filterList, self.folders, 'MP3 Ordner Auswahl', len(self.folders), max)
+            else:
+                self.session.openWithCallback(self.filter_return, filterList, self.folders, 'MP3 Folder Selection', len(self.folders), max)
+        return
+
+    def filterArtist(self):
+        if self.ready == True:
+            artists = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        artist = mp3line[3]
+                    except IndexError as e:
+                        artist = ' '
+
+                    if artist != ' ':
+                        artists = artists + artist + ':::'
+
+                self.artists = [ i for i in artists.split(':::') ]
+                self.artists.sort()
+                self.artists.pop(0)
+                try:
+                    last = self.artists[(-1)]
+                    for i in range(len(self.artists) - 2, -1, -1):
+                        if last == self.artists[i]:
+                            del self.artists[i]
+                        else:
+                            last = self.artists[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][filterArtist   ] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Interpreten Auswahl', len(self.artists), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
+
+    def filterAlbum(self):
+        if self.ready == True:
+            albums = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        album = mp3line[4]
+                    except IndexError as e:
+                        album = ' '
+
+                    if album != ' ':
+                        albums = albums + album + ':::'
+
+                self.albums = [ i for i in albums.split(':::') ]
+                self.albums.sort()
+                self.albums.pop(0)
+                try:
+                    last = self.albums[(-1)]
+                    for i in range(len(self.albums) - 2, -1, -1):
+                        if last == self.albums[i]:
+                            del self.albums[i]
+                        else:
+                            last = self.albums[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][ filterAlbum  ] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Auswahl', len(self.albums), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
+
+    def filterGenre(self):
+        if self.ready == True:
+            genres = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        genre = mp3line[8]
+                    except IndexError as e:
+                        genre = ' '
+
+                    if genre != ' ':
+                        genres = genres + genre + ', '
+
+                self.genres = [ i for i in genres.split(', ') ]
+                self.genres.sort()
+                self.genres.pop(0)
+                try:
+                    last = self.genres[(-1)]
+                    for i in range(len(self.genres) - 2, -1, -1):
+                        if last == self.genres[i]:
+                            del self.genres[i]
+                        else:
+                            last = self.genres[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][fliterGenre   ] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Auswahl', len(self.genres), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
+
+    def filter_return(self, filter):
+        if filter and filter is not None:
+            self.index = 0
+            self.makeMP3(filter)
+        return
+
+    def sortDatabase(self):
+        self.sortorder = config.plugins.mp3browser.sortorder.value
+        f = open(self.database, 'r')
+        lines = f.readlines()
+        f.close()
+        try:
+            if self.sortorder == 'artist':
+                lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'artist_reverse':
+                lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'album':
+                lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'album_reverse':
+                lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'track':
+                lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'track_reverse':
+                lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'genre':
+                lines.sort(key=lambda line: line.split(':::')[8])
+            elif self.sortorder == 'genre_reverse':
+                lines.sort(key=lambda line: line.split(':::')[8], reverse=True)
+            elif self.sortorder == 'year':
+                lines.sort(key=lambda line: line.split(':::')[7])
+            elif self.sortorder == 'year_reverse':
+                lines.sort(key=lambda line: line.split(':::')[7], reverse=True)
+            elif self.sortorder == 'date':
+                lines.sort(key=lambda line: line.split(':::')[2])
+            elif self.sortorder == 'date_reverse':
+                lines.sort(key=lambda line: line.split(':::')[2], reverse=True)
+            elif self.sortorder == 'folder':
+                lines.sort(key=lambda line: line.split(':::')[1])
+            elif self.sortorder == 'folder_reverse':
+                lines.sort(key=lambda line: line.split(':::')[1], reverse=True)
+            elif self.sortorder == 'runtime':
+                lines.sort(key=lambda line: line.split(':::')[9])
+            elif self.sortorder == 'runtime_reverse':
+                lines.sort(key=lambda line: line.split(':::')[9], reverse=True)
+        except IndexError as e:
+            print("[MP3Browser][sortDatabase   ] Indexerror",  e)
+
+        fsorted = open(self.database + '.sorted', 'w')
+        fsorted.writelines(lines)
+        fsorted.close()
+        os.rename(self.database + '.sorted', self.database)
+
+    def editDatabase(self):
+        if self.ready == True:
+            try:
+                mp3 = self.mp3list[self.index]
+            except IndexError as e:
+                mp3 = 'None'
+
+            self.session.openWithCallback(self.returnDatabase, mp3Database, mp3)
+
+    def returnDatabase(self, changed):
+        if changed is True:
+            mp3 = self.mp3list[self.index]
+            mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+            self.sortDatabase()
+            f = open(self.database, 'r')
+            count = 0
+            for line in f:
+                if self.filter in line:
+                    if mp3 in line:
+                        self.index = count
+                        break
+                    count += 1
+
+            f.close()
+            self.makeMP3(self.filter)
+
+    def showPath(self):
+        if self.ready == True:
+            self.session.open(MessageBox, '\nMP3 File:\n%s' % self.mp3list[self.index], MessageBox.TYPE_INFO, close_on_any_key=True)
+
+    def getIndex(self, list):
+        return list.getSelectedIndex()
+
+    def download(self, link, name):
+        print("[download] link=%s, name =%s" % (link, name))
+        link = link.encode()      
+        getPage(link).addCallback(name).addErrback(self.downloadError)
+
+    def downloadError(self, output):
+        self.ready = True
+
+    def downloadLyricsError(self, output):
+        output = output.decode()
+        artist = '%s - %s' % (self.artist, self.track)
+        if len(artist) > 35:
+            if artist[34:35] == ' ':
+                artist = artist[0:34]
+            else:
+                artist = artist[0:35] + 'FIN'
+                artist = sub(' \\S+FIN', '', artist)
+            artist = artist + ' ...'
+        self['discogsartist'].setText(str(artist))
+        self['discogsartist'].show()
+        self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
+        self['discogs'].setText(self.lyrics)
+        self['discogs'].show()
+        artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
+        artistntrack = transLYRICSTIME(artistntrack)
+        url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
+        url = url.encode()
+        getPage(url).addCallback(self.makeLyricsTime).addErrback(self.downloadLyricsTimeError)
+
+    def downloadLyricsTimeError(self, output):
+        output = output.decode()
+        artist = '%s - %s' % (self.artist, self.track)
+        if len(artist) > 35:
+            if artist[34:35] == ' ':
+                artist = artist[0:34]
+            else:
+                artist = artist[0:35] + 'FIN'
+                artist = sub(' \\S+FIN', '', artist)
+            artist = artist + ' ...'
+        self['discogsartist'].setText(str(artist))
+        self['discogsartist'].show()
+        self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+        self['discogs'].setText(self.lyrics)
+        self['discogs'].show()
+        self.ready = True
+
+    def downloadDiscogsError(self, output):
+        output = output.decode()
+        self['discogsartist'].setText('%s' % self.artist)
+        self['discogs'].setText('Discogs.com:\nArtist %s not found.' % self.artist)
+        self['googlePoster'].hide()
+        self.showInfo()
+        self.ready = True
+
+    def config(self):
+        if self.ready == True:
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3BrowserConfig)
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def showHelp(self):
+        if self.showhelp == False:
+            self.showhelp = True
+            self.toogleHelp.show()
+        else:
+            self.showhelp = False
+            self.toogleHelp.hide()
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+    def exit(self):
+        if self.showhelp == True:
+            self.showhelp = False
+            self.toogleHelp.hide()
+        elif self.toggle != 0:
+            self.toggle = 0
+            self.hideDiscogs()
+            self.showList()
+            self.showInfo()
+            if self.lang == 'de':
+                self['text1'].setText('Hilfe')
+                self['text2'].setText('Update')
+                self['text3'].setText('Editieren')
+            else:
+                self['text1'].setText('Help')
+                self['text2'].setText('Update')
+                self['text3'].setText('Edit')
+        else:
+            self.playready = False
+            if self.background == True or config.plugins.mp3browser.showtv.value == 'hide':
+                self.session.nav.playService(self.oldService)
+            if config.plugins.mp3browser.lastmp3.value == 'yes':
+                try:
+                    mp3 = self.mp3list[self.index]
+                    f = open(self.lastfile, 'w')
+                    f.write(mp3)
+                    f.close()
+                except IndexError as e:
+                    print("[MP3Browser][exit] Indexerror",  e)
+
+            if config.plugins.mp3browser.lastfilter.value == 'yes':
+                f = open(self.lastfilter, 'w')
+                f.write(self.filter)
+                f.close()
+            self.session.deleteDialog(self.toogleHelp)
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.close()
+
+
+class mp3Browser(Screen):
+
+    def __init__(self, session, index, filter):
+        print("[MP3Browser][mp3Browser] ")    
+        if config.plugins.mp3browser.plugin_size.value == 'full':
+            self.xd = False
+            self.spaceTop = 4
+            self.spaceLeft = 0
+            self.spaceX = 2
+            self.spaceY = 2
+            self.picX = 140
+            self.picY = 140
+            self.posterX = 9
+            self.posterY = 5
+            self.posterALL = 45
+            self.posterREST = 0
+        else:
+            self.xd = True
+            self.spaceTop = 1
+            self.spaceLeft = -3
+            self.spaceX = 4
+            self.spaceY = 4
+            self.picX = 110
+            self.picY = 110
+            self.posterX = 9
+            self.posterY = 5
+            self.posterALL = 45
+            self.posterREST = 0
+        self.positionlist = []
+        skincontent = ''
+        numX = -1
+        for x in list(range(self.posterALL)):
+            numY = x // self.posterX
+            numX += 1
+            if numX >= self.posterX:
+                numX = 0
+            posX = self.spaceLeft + self.spaceX + numX * (self.spaceX + self.picX)
+            posY = self.spaceTop + self.spaceY + numY * (self.spaceY + self.picY)
+            if self.xd == False:
+                self.positionlist.append((posX - 16, posY - 16))
+            else:
+                self.positionlist.append((posX - 10, posY - 10))
+            skincontent += '<widget name="poster' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="' + str(self.picX) + ',' + str(self.picY) + '" zPosition="-4" transparent="1" alphatest="on" />'
+            skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="' + str(self.picX) + ',' + str(self.picY) + '" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD.png" />'
+
+        skin = '\n\t\t\t\t\t<screen position="center,center" size="1024,576" flags="wfNoBorder" title="  " >\n\t\t\t\t\t\t<widget name="infoback" position="15,15" size="460,400" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="name" position="25,16" size="440,55" font="{font};24" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="3" />\n\t\t\t\t\t\t<widget name="Artist" position="25,70" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="4" />\n\t\t\t\t\t\t<widget name="artist" position="25,100" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="5" />\n\t\t\t\t\t\t<widget name="Album" position="25,140" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="6" />\n\t\t\t\t\t\t<widget name="album" position="25,170" size="285,50" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />\n\t\t\t\t\t\t<widget name="Year" position="320,140" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="8" />\n\t\t\t\t\t\t<widget name="year" position="320,170" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="9" />\n\t\t\t\t\t\t<widget name="Track" position="25,210" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="10" />\n\t\t\t\t\t\t<widget name="track" position="25,240" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="11" />\n\t\t\t\t\t\t<widget name="Number" position="320,210" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="12" />\n\t\t\t\t\t\t<widget name="number" position="320,240" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="13" />\n\t\t\t\t\t\t<widget name="Runtime" position="25,280" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="14" />\n\t\t\t\t\t\t<widget name="runtime" position="25,310" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="15" />\n\t\t\t\t\t\t<widget name="Bitrate" position="320,280" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="16" />\n\t\t\t\t\t\t<widget name="bitrate" position="320,310" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="17" />\n\t\t\t\t\t\t<widget name="Genre" position="25,350" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="18" />\n\t\t\t\t\t\t<widget name="genre" position="25,380" size="440,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="19" />\n\t\t\t\t\t\t<widget name="discogsback" position="549,15" size="460,400" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="discogs" position="559,22" size="440,390" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="31" />\n\t\t\t\t\t\t<widget name="googlePoster" position="25,50" size="440,330" alphatest="on" transparent="1" zPosition="31" />\n\t\t\t\t\t\t<widget name="frame" position="-9,-5" size="130,130" zPosition="-2" alphatest="on" />"\n\t\t\t\t\t\t' + skincontent + '\n\t\t\t\t\t</screen>'
+        skinHD = '\n\t\t\t\t\t<screen position="center,center" size="1280,720" flags="wfNoBorder" title="  " >\n\t\t\t\t\t\t<widget name="infoback" position="25,25" size="525,430" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="name" position="40,30" size="495,70" font="{font};28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="3" />\n\t\t\t\t\t\t<widget name="Artist" position="40,100" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="4" />\n\t\t\t\t\t\t<widget name="artist" position="40,130" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="5" />\n\t\t\t\t\t\t<widget name="Album" position="40,170" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="6" />\n\t\t\t\t\t\t<widget name="album" position="40,200" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />\n\t\t\t\t\t\t<widget name="Year" position="370,170" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="8" />\n\t\t\t\t\t\t<widget name="year" position="370,200" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="9" />\n\t\t\t\t\t\t<widget name="Track" position="40,240" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="10" />\n\t\t\t\t\t\t<widget name="track" position="40,270" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="11" />\n\t\t\t\t\t\t<widget name="Number" position="370,240" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="12" />\n\t\t\t\t\t\t<widget name="number" position="370,270" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="13" />\n\t\t\t\t\t\t<widget name="Runtime" position="40,310" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="14" />\n\t\t\t\t\t\t<widget name="runtime" position="40,340" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="15" />\n\t\t\t\t\t\t<widget name="Bitrate" position="370,310" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="16" />\n\t\t\t\t\t\t<widget name="bitrate" position="370,340" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="17" />\n\t\t\t\t\t\t<widget name="Genre" position="40,380" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="18" />\n\t\t\t\t\t\t<widget name="genre" position="40,410" size="500,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="19" />\n\t\t\t\t\t\t<widget name="discogsback" position="730,25" size="525,430" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="discogs" position="745,40" size="500,400" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="20" />\n\t\t\t\t\t\t<widget name="googlePoster" position="37,53" size="500,375" alphatest="on" transparent="1" zPosition="20" />\n\t\t\t\t\t\t<widget name="frame" position="-11,-7" size="172,172" zPosition="-2" alphatest="on" />"\n\t\t\t\t\t\t' + skincontent + '\n\t\t\t\t\t</screen>'
+
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        color = config.plugins.mp3browser.color.value
+        if self.xd == False:
+            self.dict = {'font': font, 'color': color}
+            self.skin = applySkinVars(skinHD, self.dict)
+        else:
+            self.dict = {'font': font, 'color': color}
+            self.skin = applySkinVars(skin, self.dict)
+        Screen.__init__(self, session)
+
+        self.fhd = False
+        self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
+        self.toogleHelp = self.session.instantiateDialog(helpScreen)
+        self.showhelp = False
+        self.hideflag = True
+        self.fav = False
+        self.ready = False
+        self.autoupdate = False
+        self.index = index
+        self.wallindex = self.index % self.posterALL
+        self.pagecount = self.index // self.posterALL + 1
+        self.walloldindex = 0
+        self.pagemax = 1
+        self.filter = filter
+        self.move = False if config.plugins.mp3browser.screensaver.value == 'no' else True
+        self.background = False if config.plugins.mp3browser.background.value == 'player' else True
+        self.playready = False
+
+# toggle 0,1,2 choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')
+        
+        if config.plugins.mp3browser.showinfo.value == 'always':
+            self.infofull = True
+            self.toggle = 2
+        elif config.plugins.mp3browser.showinfo.value == 'info':
+                self.infofull = True
+                self.toggle = 1
+        else:
+               self.infofull = False
+               self.toggle = 0
+        self.move = False if config.plugins.mp3browser.screensaver.value == 'no' else True
+        self.random = False if config.plugins.mp3browser.shuffle.value == 'no' else True
+        self.background = False if config.plugins.mp3browser.background.value == 'player' else True
+        self.showfolder = False if config.plugins.mp3browser.showfolder.value == 'no' else True               
+        self.lang = config.plugins.mp3browser.language.value
+        self.__event_tracker = ServiceEventTracker(screen=self, eventmap={iPlayableService.evEOF: self.nextMP3})
+        self.ABC = 'ABC'
+        self.artist = ''
+        self.artistold = ''
+        self.artistdisco = ''
+        self.track = ''
+        self.trackold = ''
+        self.profile = ''
+        self.lyrics = ''
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        default_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default.png'
+        defaultfolder_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default_folder.png'        
+        self['frame'] = Pixmap()
+        for x in list(range(self.posterALL)):
+            self['poster' + str(x)] = Pixmap()
+            self['poster_back' + str(x)] = Pixmap()
+        self['Artist'] = Label('Interpret:') if self.lang == 'de' else Label('Artist:')
+        self['Number'] = Label('Titel#:') if self.lang == 'de' else Label('Track#:')
+        self['Track'] = Label('Titel:') if self.lang == 'de' else Label('Track:')
+        self['Year'] = Label('Jahr:') if self.lang == "de" else Label('Year:')
+        self['Runtime'] = Label('Laufzeit:') if self.lang == "de" else Label('Runtime:')
+        self['Album'] = Label('Album:')
+        self['Bitrate'] = Label('Bitrate:')
+        self['Genre'] = Label('Genre:')
+        self['Artist'].hide()
+        self['Number'].hide()
+        self['Track'].hide()
+        self['Year'].hide()
+        self['Runtime'].hide()
+        self['Album'].hide()
+        self['Bitrate'].hide()
+        self['Genre'].hide()
+        self['name'] = Label()
+        self['artist'] = Label()
+        self['album'] = Label()
+        self['number'] = Label()
+        self['track'] = Label()
+        self['year'] = Label()
+        self['runtime'] = Label()
+        self['bitrate'] = Label()
+        self['genre'] = Label()
+        self['discogs'] = ScrollLabel()
+        self['googlePoster'] = Pixmap()
+        self['discogsback'] = Pixmap()
+        self['discogsback'].hide()
+        self['infoback'] = Pixmap()
+        self['infoback'].hide()
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'InfobarActions', 'InfobarTeletextActions', 'MovieSelectionActions', 'MoviePlayerActions', 'InfobarEPGActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'right': self.rightDown, 
+           'left': self.leftUp, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.PageUp, 
+           'prevBouquet': self.PageDown, 
+           'nextMarker': self.gotoABC, 
+           'prevMarker': self.gotoXYZ, 
+           'red': self.switchStyle, 
+           'yellow': self.showMP3,
+           'green': self.showMP3, 
+           'blue': self.hideScreen, 
+           'contextMenu': self.config, 
+           'showEventInfo': self.toggleInfo, 
+           'EPGPressed': self.toggleInfo, 
+           'startTeletext': self.editDatabase, 
+           'showMovies': self.updateDatabase, 
+           'showRadio': self.deleteMP3, 
+           'leavePlayer': self.stop, 
+           '1': self.showMP3, 
+           '2': self.moveCovers, 
+           '3': self.makeFav, 
+           '4': self.showMP3, 
+           '5': self.shuffleMP3, 
+           '6': self.filterFolder, 
+           '7': self.filterArtist, 
+           '8': self.filterAlbum, 
+           '9': self.filterGenre, 
+           '0': self.gotoEnd, 
+           'bluelong': self.showHelp, 
+           'displayHelp': self.showHelp}, -1)
+        self.movie_stop = config.usage.on_movie_stop.value
+        self.movie_eof = config.usage.on_movie_eof.value
+        config.usage.on_movie_stop.value = 'quit'
+        config.usage.on_movie_eof.value = 'quit'
+        self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        self.favorites = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
+        self.lastfilter = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/filter'
+        self.lastfile = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/last'
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        if config.plugins.mp3browser.autocheck.value == 'yes':
+            self.version = '2.0py3'
+        if fileExists(self.database):
+            size = os.path.getsize(self.database)
+            if size < 10:
+                os.remove(self.database)
+        if self.xd == False:
+            self.infoBackPNG = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/info_backHD.png'
+            InfoFull = loadPic(self.infoBackPNG, 525, 430, 3, 0, 0, 0)
+        else:
+            self.infoBackPNG = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/info_back.png'
+            InfoFull = loadPic(self.infoBackPNG, 460, 400, 3, 0, 0, 0)
+        if InfoFull != None:
+            self['discogsback'].instance.setPixmap(InfoFull)
+            self['infoback'].instance.setPixmap(InfoFull)
+            self['discogsback'].hide()
+            self['infoback'].hide()
+        if config.plugins.mp3browser.showtv.value == 'hide':
+            self.session.nav.stopService()
+        self.coverTimer = eTimer()
+        self.coverTimer.callback.append(self.startMoveCovers)
+        if fileExists(self.database):
+            if self.index == 0:
+                if config.plugins.mp3browser.lastfilter.value == 'yes':
+                    self.filter = open(self.lastfilter).read()
+                if config.plugins.mp3browser.lastmp3.value == 'yes':
+                    mp3 = open(self.lastfile).read()
+                    mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+                    data = open(self.database).read()
+                    count = 0
+                    for line in data.split('\n'):
+                        if self.filter in line:
+                            if search(mp3, line) is not None:
+                                self.index = count
+                                break
+                            count += 1
+
+                    if mp3.endswith('...'):
+                        self.index = count
+                    self.wallindex = self.index % self.posterALL
+                    self.pagecount = self.index // self.posterALL + 1
+                elif config.plugins.mp3browser.lastmp3.value == 'folder' and self.showfolder == True:
+                    self.index = sum(1 for line in open(self.database))
+                    self.wallindex = self.index % self.posterALL
+                    self.pagecount = self.index // self.posterALL + 1
+            self.reset = False
+            self.makeMP3BrowserTimer = eTimer()
+            if config.plugins.mp3browser.autoupdate.value == 'yes' and os.path.exists(config.plugins.mp3browser.mp3folder.value):
+                self.autoupdate = True
+                self.makeMP3BrowserTimer.callback.append(self.database_return(True))
+            else:
+                self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
+            self.makeMP3BrowserTimer.start(500, True)
+        else:
+            self.openTimer = eTimer()
+            self.openTimer.callback.append(self.openInfo)
+            self.openTimer.start(500, True)
+        return
+
+    def openInfo(self):
+        if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
+            if self.lang == 'de':
+                self.session.openWithCallback(self.reset_return, MessageBox, 'Die MP3 Browser Datenbank wird jetzt neu erstellt. Je nach Anzahl der MP3s kann dies mehrere Minuten dauern.\n\nSoll die Datenbank jetzt erstellt werden?', MessageBox.TYPE_YESNO)
+            else:
+                self.session.openWithCallback(self.reset_return, MessageBox, 'The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?', MessageBox.TYPE_YESNO)
+        elif self.lang == 'de':
+            self.session.openWithCallback(self.first_return, MessageBox, 'Bevor die Datenbank neu erstellt wird, überprüfen Sie Ihre Einstellungen im Setup des Plugins:\n\n- Kontrollieren Sie den Pfad zum MP3 Ordner\n- Ändern Sie den Cache Ordner auf Ihre Festplatte oder USB Stick.', MessageBox.TYPE_YESNO)
+        else:
+            self.session.openWithCallback(self.first_return, MessageBox, 'Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.', MessageBox.TYPE_YESNO)
+
+    def first_return(self, answer):
+        if answer is True:
+            open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3BrowserConfig)
+        else:
+            self.close()
+
+    def reset_return(self, answer):
+        if answer is True:
+            self.reset = True
+            if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
+                os.remove('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset')
+            open(self.database, 'w').close()
+            self.makeMP3BrowserTimer = eTimer()
+            self.resetTimer = eTimer()
+            self.resetTimer.callback.append(self.database_return(True))
+            self.resetTimer.start(500, True)
+        else:
+            self.close()
+
+    def makeMP3(self, filter):
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        self.filter = filter
+        if fileExists(self.database):
+            f = open(self.database, 'r')
+            for line in f:
+                if filter in line:
+                    try:           
+                        name = filename = date = artist = album = number = track = year = genre = runtime = bitrate = " "                
+                        poster = 'http://sites.google.com/site/kashmirplugins/home/mp3-browser/default.png'
+                        mp3line = line.split(':::')
+                        if mp3line == " " or len(mp3line)  < 2:
+                            pass
+                        name = mp3line[0]
+                        filename = mp3line[1]
+                        date = mp3line[2]
+                        artist = mp3line[3]
+                        album = mp3line[4]
+                        number = mp3line[5]
+                        track = mp3line[6]
+                        year = mp3line[7]
+                        genre = mp3line[8]
+                        runtime = mp3line[9]
+                        bitrate = mp3line[10]
+                        poster = mp3line[11]
+                    except IndexError as e:
+                        print("[MP3Browser][makeMP3] index", e)    
+                    self.namelist.append(name)
+                    self.mp3list.append(filename)
+                    self.datelist.append(date)
+                    self.artistlist.append(artist)
+                    self.albumlist.append(album)
+                    self.numberlist.append(number)
+                    self.tracklist.append(track)
+                    self.yearlist.append(year)
+                    self.genrelist.append(genre)
+                    self.runtimelist.append(runtime)
+                    self.bitratelist.append(bitrate)
+                    self.posterlist.append(poster)
+            f.close()
+            if self.showfolder == True:
+                if self.lang == 'de':
+                    self.namelist.append('<Liste der MP3 Ordner>')
+                else:
+                    self.namelist.append('<List of MP3 Folder>')
+                self.mp3list.append(config.plugins.mp3browser.mp3folder.value + '...')
+                self.datelist.append('')
+                self.artistlist.append('')
+                self.albumlist.append('')
+                self.numberlist.append('')
+                self.tracklist.append('')
+                self.yearlist.append('')
+                self.genrelist.append('')
+                self.runtimelist.append('')
+                self.bitratelist.append('')
+                self.posterlist.append('http://sites.google.com/site/kashmirplugins/home/mp3-browser/default_folder.png')
+            self.maxentry = len(self.namelist)
+            self.posterREST = self.maxentry % self.posterALL
+            if self.posterREST == 0:
+                self.posterREST = self.posterALL
+            self.pagemax = self.maxentry // self.posterALL
+            if self.maxentry % self.posterALL > 0:
+                self.pagemax += 1
+            self.makePoster(self.pagecount - 1)
+            self.paintFrame()
+            if self.infofull == True:
+                try:
+                    self.makeInfo(self.index)
+                except IndexError as e:
+                    print("[MP3Browser][makeMP3   ] Indexerror",  e)
+                    
+# toggle 0,1,2 choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')
+            if self.toggle == 2:
+                self['discogsback'].show()
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+            self.ready = True
+
+    def updateDatabase(self):
+        if self.ready == True:
+            if self.lang == 'de':
+                if os.path.exists(config.plugins.mp3browser.mp3folder.value) and os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                    self.session.openWithCallback(self.database_return, MessageBox, '\nMP3 Browser Datenbank aktualisieren?', MessageBox.TYPE_YESNO)
+                elif os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                    self.session.open(MessageBox, '\nMP3 Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Update abgebrochen.' % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+                else:
+                    self.session.open(MessageBox, '\nCache Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Update abgebrochen.' % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+            elif os.path.exists(config.plugins.mp3browser.mp3folder.value) and os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                self.session.openWithCallback(self.database_return, MessageBox, '\nUpdate MP3 Browser Database?', MessageBox.TYPE_YESNO)
+            elif os.path.exists(config.plugins.mp3browser.cachefolder.value):
+                self.session.open(MessageBox, '\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled.' % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled.' % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+
+    def database_return(self, answer):
+        if answer is True:
+            self.ready = False
+            try:
+                mp3 = self.mp3list[self.index]
+                f = open(self.lastfile, 'w')
+                f.write(mp3)
+                f.close()
+            except IndexError as e:
+                print("[MP3Browser][database_return] Indexerror",  e)
+
+            if fileExists(self.database):
+                self.runTimer = eTimer()
+                self.runTimer.callback.append(self.database_run)
+                self.runTimer.start(500, True)
+
+    def database_run(self):
+        if config.plugins.mp3browser.hideupdate.value == 'yes':
+            self.hideScreen()
+        self.namelist = []
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        self.orphaned = 0
+        if self.fav == True:
+            self.fav = False
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        data = open(self.database).read()
+        allfiles = ':::'
+        folder = config.plugins.mp3browser.mp3folder.value
+        for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
+            for name in files:
+                if name.lower().endswith('.mp3'):
+                    filename = os.path.join(root, name)
+                    allfiles = allfiles + filename + ':::'
+                    mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', name)
+                    if search(mp3, data) is None:
+                        if name.lower().endswith('.mp3'):
+                            self.mp3list.append(filename)
+                            self.datelist.append(str(datetime.datetime.now()))
+                            name = sub('\\.mp3|\\.MP3', '', name)
+                            self.namelist.append(name)
+                            audio = None
+                            album = ''
+                            artist = ''
+                            number = ''
+                            track = ''
+                            genre = ''
+                            year = ''
+                            runtime = ''
+                            bitrate = ''
+                            try:
+                                audio = MP3(filename, ID3=EasyID3)
+                                if audio is not None:
+                                    album = audio.get('album', ['n/a'])[0]
+                                    artist = audio.get('artist', ['n/a'])[0]
+                                    number = audio.get('tracknumber', ['n/a'])[0].split('/')[0]
+                                    track = audio.get('title', [name])[0]
+                                    genre = audio.get('genre', ['n/a'])[0]
+                                    year = audio.get('date', ['n/a'])[0]
+                                    runtime = str(datetime.timedelta(seconds=int(audio.info.length)))
+                                    bitrate = str(audio.info.bitrate // 1000)
+                                    bitrate = bitrate + ' kbit/s'
+                            except (HeaderNotFoundError, ID3NoHeaderError) as e:
+                                artist = name
+                                track = 'Missing ID3 Header'
+                                album = 'Missing ID3 Header'
+                                genre = 'Missing ID3 Header'
+
+                            self.albumlist.append(album)
+                            self.artistlist.append(artist)
+                            self.numberlist.append(number)
+                            self.tracklist.append(track)
+                            self.genrelist.append(genre)
+                            self.yearlist.append(year)
+                            self.runtimelist.append(runtime)
+                            self.bitratelist.append(bitrate)
+                            posterurl = 'http://sites.google.com/site/kashmirplugins/home/mp3-browser/default.png'
+                            try:
+                                audio = ID3(filename)
+                                poster = audio.getall('APIC')
+                            except (HeaderNotFoundError, ID3NoHeaderError) as e:                                
+                                print("[MP3Browser][Database_run] ID3 poster, length poster ",  len(poster))                                
+                            if len(poster) > 0:
+                                mime = poster[0].mime
+                                if mime.lower().endswith('png'):
+                                    ext = '.png'
+                                else:
+                                    ext = '.jpg'
+                                posterurl = config.plugins.mp3browser.cachefolder.value + '/' + name + ext
+                                f = open(posterurl, 'wb')
+                                f.write(poster[0].data)
+                                f.close()
+                            self.posterlist.append(posterurl)
+
+        for line in data.split('\n'):
+            mp3line = line.split(':::')
+            mp3folder = ""
+            if mp3line == " " or len(mp3line) < 5:
+                break     
+            mp3folder = mp3line[1]
+            mp3folder = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3folder)
+
+            if search(config.plugins.mp3browser.mp3folder.value, mp3folder) is not None and search(mp3folder, allfiles) is None:
+                self.orphaned += 1
+                data = data.replace(line + '\n', '')
+
+        f = open(self.database, 'w')
+        f.write(data)
+        f.close()
+        del data
+        del allfiles
+        self.dbcount = 0
+        self.dbcountmax = len(self.mp3list)-1
+        if self.dbcountmax == 0:
+            self.finished_update(False)
+        else:
+            f = open(self.database, 'a')
+            while self.dbcount <= self.dbcountmax:
+                try:
+                    data = self.namelist[(self.dbcount)] + ':::' + self.mp3list[(self.dbcount)] + ':::' + self.datelist[(self.dbcount)] + ':::' + self.artistlist[(self.dbcount)] + ':::' + self.albumlist[(self.dbcount)] + ':::' + self.numberlist[(self.dbcount )] + ':::' + self.tracklist[(self.dbcount)] + ':::' + self.yearlist[(self.dbcount )] + ':::' + self.genrelist[(self.dbcount)] + ':::' + self.runtimelist[(self.dbcount)] + ':::' + self.bitratelist[(self.dbcount)] + ':::' + self.posterlist[(self.dbcount)] + ':::\n'
+                    f.write(data)
+                except IndexError as e:
+                    print("[MP3Browser][Database_run][write database]2 Indexerror",  e)
+                self.dbcount += 1
+
+            f.close()
+            self.sortDatabase()
+            if self.reset == True:
+                if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
+                    self.hideScreen()
+                self.session.openWithCallback(self.exit, mp3Browser, 0, ':::')
+            else:
+                self.finished_update(True)
+        return
+
+    def finished_update(self, found):
+        print("[MP3Browser][finished_update]")     
+        if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
+            self.hideScreen()
+        # print("[MP3Browser][finished update] self.lastfile",  self.lastfile)            
+        mp3 = open(self.lastfile).read()
+        mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+        data = open(self.database).read()
+        count = 0
+        for line in data.split('\n'):
+            if self.filter in line:
+                if search(mp3, line) is not None:
+                    self.index = count
+                    break
+                count += 1
+
+        self.wallindex = self.index % self.posterALL
+        self.pagecount = self.index // self.posterALL + 1
+        self.walloldindex = 0
+        self.pagemax = 1
+        if self.autoupdate == True:
+            self.autoupdate = False
+            self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
+        elif found == False and self.orphaned == 0:
+            if self.lang == 'de':
+                self.session.open(MessageBox, '\nKeine neuen MP3s gefunden:\nIhre Datenbank ist aktuell.', MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\nNo new MP3s found:\nYour Database is up to date.', MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        elif found == False:
+            if self.lang == 'de':
+                if self.orphaned == 1:
+                    self.session.open(MessageBox, '\nKeine neuen MP3s gefunden.\n%s verwaister Datenbank Eintrag gelöscht.' % str(self.orphaned), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\nKeine neuen MP3s gefunden.\n%s verwaiste Datenbank Einträge gelöscht.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            elif self.orphaned == 1:
+                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entry deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        elif self.orphaned == 0:
+            if self.lang == 'de':
+                if self.dbcountmax == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\n%s MP3s in die Datenbank importiert.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        else:
+            if self.lang == 'de':
+                if self.dbcountmax == 1 and self.orphaned == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.\n%s verwaister Datenbank Eintrag gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                elif self.dbcountmax == 1:
+                    self.session.open(MessageBox, '\n%s MP3 in die Datenbank importiert.\n%s verwaiste Datenbank Einträge gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                elif self.orphaned == 1:
+                    self.session.open(MessageBox, '\n%s MP3s in die Datenbank importiert.\n%s verwaister Datenbank Eintrag gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+                else:
+                    self.session.open(MessageBox, '\n%s MP3s in die Datenbank importiert.\n%s verwaiste Datenbank Einträge gelöscht.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1 and self.orphaned == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.dbcountmax == 1:
+                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            elif self.orphaned == 1:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            else:
+                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            self.makeMP3(self.filter)
+        return
+
+    def ok(self):
+        if self.ready == True:
+            try:
+                filename = self.mp3list[self.index]
+                if self.showfolder == True and filename.endswith('...'):
+                    self.filterFolder()
+                    return
+                sref = eServiceReference('4097:0:0:0:0:0:0:0:0:0:' + filename)
+                sref.setName(self.artistlist[self.index] + ' - ' + self.tracklist[self.index])
+                if self.background == True:
+                    self.playready = True
+                    self.session.nav.stopService()
+                    self.session.nav.playService(sref)
+                else:
+                    self.playready = True
+                    self.session.open(MoviePlayer, sref)
+                if self.move == True:
+                    self.coverTimer.stop()
+                    self.coverTimer.start(500, True)
+            except IndexError as e:
+                print("[MP3Browser][ok] Indexerror",  e)
+
+# toggle 0,1,2 choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')
+
+    def nextMP3(self):
+        if self.playready == True:
+            if self.random == False:
+                self.index += 1
+            else:
+                self.index = random.randint(0, self.maxentry)
+            if self.index == self.maxentry:
+                self.index = 0
+            self.ok()
+            self.walloldindex = self.wallindex
+            self.wallindex += 1
+            if self.pagecount == self.pagemax and self.wallindex > self.posterREST - 1:
+                self.wallindex = 0
+                self.pagecount = 1
+                self.makePoster(self.pagecount - 1)
+            elif self.wallindex == self.posterALL:
+                self.wallindex = 0
+                self.pagecount += 1
+                self.makePoster(self.pagecount - 1)
+            self.paintFrame()
+            if self.infofull == True:
+                try:
+                    self.makeInfo(self.index)
+                except IndexError as e:
+                    print("[MP3Browser][ nextMP3  ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def stop(self):
+        self.playready = False
+        if self.background == True:
+            self.session.nav.stopService()
+            self.session.nav.playService(self.oldService)
+        if self.move == True:
+            self.coverTimer.stop()
+
+    def deleteMP3(self):
+        if self.ready == True:
+            if self.toggle == 0 or self.toggle == 1:
+                try:
+                    name = self.namelist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\n%s wird aus der Datenbank und aus dem MP3 Ordner gelöscht!\n\nWollen Sie fortfahren?' % name, MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?' % name, MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deleteMP3   ] Indexerror",  e)
+
+            elif self.toggle == 2:
+                try:
+                    self.artist = self.artistlist[self.index]
+                    self.track = self.tracklist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nDie Lyrics zu %s - %s werden gelöscht!\n\nWollen Sie fortfahren?' % (self.artist, self.track), MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?' % (self.artist, self.track), MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deletMP3   ] Indexerror",  e)
+
+            elif self.toggle == 3:
+                try:
+                    self.artist = self.artistlist[self.index]
+                    if self.lang == 'de':
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nDie Discogs Informationen und das Google Poster zu %s werden gelöscht!\n\nWollen Sie fortfahren?' % self.artist, MessageBox.TYPE_YESNO)
+                    else:
+                        self.session.openWithCallback(self.delete_return, MessageBox, '\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?' % self.artist, MessageBox.TYPE_YESNO)
+                except IndexError as e:
+                    print("[MP3Browser][deleteMP3   ] Indexerror",  e)
+
+    def delete_return(self, answer):
+        if answer is True:
+            if self.toggle == 0 or self.toggle == 1:
+                try:
+                    mp3 = self.mp3list[self.index]
+                    filename = sub('.*?[/]', '', mp3)
+                    lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+                    lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+                    lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+                    if fileExists(lyricsfile):
+                        os.remove(lyricsfile)
+                    if fileExists(mp3):
+                        os.remove(mp3)
+                    mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+                    data = open(self.database).read()
+                    for line in data.split('\n'):
+                        if search(mp3, line) is not None:
+                            data = data.replace(line + '\n', '')
+
+                    f = open(self.database, 'w')
+                    f.write(data)
+                    f.close()
+                    if self.index == self.maxentry - 1:
+                        self.index -= 1
+                    self.makeMP3(self.filter)
+                except IndexError as e:
+                    print("[MP3Browser][delete_return   ] Indexerror",  e)
+
+            elif self.toggle == 2:
+                try:
+                    filepath = self.mp3list[self.index]
+                    filename = sub('.*?[/]', '', filepath)
+                    lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+                    lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+                    lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+                    if fileExists(lyricsfile):
+                        os.remove(lyricsfile)
+                    self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+                    self['discogs'].setText(self.lyrics)
+                    self['discogs'].show()
+                except IndexError as e:
+                    print("[MP3Browser][delete_return   ] Indexerror",  e)
+
+            elif self.toggle == 3:
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
+                posterpng = discogsfile.replace('.discogs', '.png')
+                posterbmp = discogsfile.replace('.discogs', '.bmp')
+                if fileExists(discogsfile):
+                    os.remove(discogsfile)
+                if fileExists(posterjpeg):
+                    os.remove(posterjpeg)
+                if fileExists(posterpng):
+                    os.remove(posterpng)
+                if fileExists(posterbmp):
+                    os.remove(posterbmp)
+                self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
+                self['discogs'].setText(self.profile)
+                self['googlePoster'].hide()
+        return
+
+    def renewCover(self):
+        return
+
+    def makeFav(self):
+        if self.ready == True:
+            if self.fav == False:
+                artist = self.artistlist[self.index]
+                track = self.tracklist[self.index]
+                self.session.openWithCallback(self.choiceFavFalse, ChoiceBox, title='MP3 Favourites', list=[('Open Favourites', 'open'), ('Edit Favourites', 'edit'), ('Add %s to Favourites' % (artist + ' - ' + track), 'add')])
+            else:
+                self.session.openWithCallback(self.choiceFavTrue, ChoiceBox, title='MP3 Favourites', list=[('Close Favourites', 'close'), ('Edit Favourites', 'edit')])
+
+    def choiceFavFalse(self, choice):
+        choice = choice and choice[1]
+        if choice == 'open':
+            self.fav = True
+            self.index = 0
+            self.walloldindex = 0
+            self.wallindex = 0
+            self.pagecount = 1
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
+            self.makeMP3(self.filter)
+        elif choice == 'edit':
+            self.session.open(mp3Fav, False)
+        else:
+            f = open(self.favorites, 'a')
+            data = self.namelist[self.index] + ':::' + self.mp3list[self.index] + ':::' + self.datelist[self.index] + ':::' + self.artistlist[self.index] + ':::' + self.albumlist[self.index] + ':::' + self.numberlist[self.index] + ':::' + self.tracklist[self.index] + ':::' + self.yearlist[self.index] + ':::' + self.genrelist[self.index] + ':::' + self.runtimelist[self.index] + ':::' + self.bitratelist[self.index] + ':::' + self.posterlist[self.index] + ':::'
+            f.write(data)
+            f.write(os.linesep)
+            f.close()
+            self.session.open(mp3Fav, True)
+
+    def choiceFavTrue(self, choice):
+        choice = choice and choice[1]
+        if choice == 'close':
+            self.fav = False
+            self.index = 0
+            self.walloldindex = 0
+            self.wallindex = 0
+            self.pagecount = 1
+            self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+            self.makeMP3(self.filter)
+        elif choice == 'edit':
+            self.session.openWithCallback(self.returnFavEdit, mp3Fav, False)
+
+    def returnFavEdit(self, edit):
+        if edit is None:
+            pass
+        else:
+            self.index = 0
+            self.walloldindex = 0
+            self.wallindex = 0
+            self.pagecount = 1
+            self.makeMP3(self.filter)
+        return
+
+    def switchStyle(self):
+        if self.ready == True:
+            self.ready = False
+            self.session.openWithCallback(self.returnStyle, switchScreen, 1, 'style')
+
+    def returnStyle(self, number):
+        if number is None or number == 2:
+            self.ready = True
+        elif number == 1:
+            if config.plugins.mp3browser.lastmp3.value == 'yes':
+                try:
+                    mp3 = self.mp3list[self.index]
+                    f = open(self.lastfile, 'w')
+                    f.write(mp3)
+                    f.close()
+                except IndexError as e:
+                    print("[MP3Browser][returnStyle] self.index, Indexerror",  self.index, "   ", e)
+
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3BrowserMetrix, self.index, self.filter)
+        return
+
+    def shuffleMP3(self):
+        if self.ready == True:
+            self.ready = False
+            if self.random == False:
+                self.session.openWithCallback(self.returnShuffleMP3, switchScreen, 2, 'shuffle')
+            else:
+                self.session.openWithCallback(self.returnShuffleMP3, switchScreen, 1, 'shuffle')
+
+    def returnShuffleMP3(self, number):
+        if number is None:
+            self.ready = True
+        elif number == 1:
+            self.random = False
+            self.ready = True
+        elif number == 2:
+            self.random = True
+            self.ready = True
+        return
+
+    def startMoveCovers(self):
+        try:
+            cover = self.posterlist[self.index]
+            cover = sub('.*?[/]', '', cover)
+            cover = config.plugins.mp3browser.cachefolder.value + '/' + cover
+            if fileExists(cover):
+                self.session.open(moveCover, cover)
+        except IndexError as e:
+            print("[MP3Browser][startMoveCovers   ] Indexerror",  e)
+
+    def moveCovers(self):
+        if self.ready == True:
+            self.ready = False
+            if self.move == False:
+                self.session.openWithCallback(self.returnMoveCovers, switchScreen, 2, 'move')
+            else:
+                self.session.openWithCallback(self.returnMoveCovers, switchScreen, 1, 'move')
+
+    def returnMoveCovers(self, number):
+        if number is None:
+            self.ready = True
+        elif number == 1:
+            self.move = False
+            self.ready = True
+        elif number == 2:
+            self.move = True
+            self.ready = True
+            try:
+                cover = self.posterlist[self.index]
+                cover = sub('.*?[/]', '', cover)
+                cover = config.plugins.mp3browser.cachefolder.value + '/' + cover
+                if fileExists(cover):
+                    self.session.open(moveCover, cover)
+            except IndexError as e:
+                print("[MP3Browser][returnMoveCovers] Indexerror",  e)
+
+        return
+
+    def toggleInfo(self):
+        if self.ready == True:
+            if self.toggle == 0:
+                self.toggle = 1
+                self.infofull = True
+                try:
+                    self.makeInfo(self.index)
+                except IndexError as e:
+                    self.showInfo()
+
+            elif self.toggle == 1:
+                self.toggle = 2
+                self['discogsback'].show()
+                self.getLyrics()
+            elif self.toggle == 2:
+                if config.plugins.mp3browser.discogs.value == 'show':
+                    self.toggle = 3
+                    self.hideInfo()
+                    self['infoback'].show()
+                    self.getDiscogs()
+                else:
+                    self.toggle = 0
+                    self.infofull = False
+                    self.hideInfo()
+                    self.hideDiscogs()
+            else:
+                self.toggle = 0
+                self.infofull = False
+                self.hideInfo()
+                self.hideDiscogs()
+
+    def showInfo(self):
+        self['name'].show()
+        self['artist'].show()
+        self['Artist'].show()
+        self['album'].show()
+        self['Album'].show()
+        self['number'].show()
+        self['Number'].show()
+        self['track'].show()
+        self['Track'].show()
+        self['year'].show()
+        self['Year'].show()
+        self['runtime'].show()
+        self['Runtime'].show()
+        self['bitrate'].show()
+        self['Bitrate'].show()
+        self['genre'].show()
+        self['Genre'].show()
+        self['infoback'].show()
+
+    def hideInfo(self):
+        self['name'].hide()
+        self['artist'].hide()
+        self['Artist'].hide()
+        self['album'].hide()
+        self['Album'].hide()
+        self['number'].hide()
+        self['Number'].hide()
+        self['track'].hide()
+        self['Track'].hide()
+        self['year'].hide()
+        self['Year'].hide()
+        self['runtime'].hide()
+        self['Runtime'].hide()
+        self['bitrate'].hide()
+        self['Bitrate'].hide()
+        self['genre'].hide()
+        self['Genre'].hide()
+        self['infoback'].hide()
+
+    def hideDiscogs(self):
+        self['discogs'].hide()
+        self['googlePoster'].hide()
+        self['discogsback'].hide()
+
+    def makeInfo(self, count):
+        self['infoback'].show()
+        try:
+            name = self.artistlist[count] + ' - ' + self.tracklist[count]
+            if self.showfolder == True and name == ' - ':
+                if self.lang == 'de':
+                    self['name'].setText('<Liste der MP3 Ordner>')
+                else:
+                    self['name'].setText('<List of MP3 Folder>')
+                self['name'].show()
+                self['name'].show()
+                self['Artist'].hide()
+                self['artist'].hide()
+                self['Album'].hide()
+                self['album'].hide()
+                self['Number'].hide()
+                self['number'].hide()
+                self['Track'].hide()
+                self['track'].hide()
+                self['Year'].hide()
+                self['year'].hide()
+                self['Runtime'].hide()
+                self['runtime'].hide()
+                self['Bitrate'].hide()
+                self['bitrate'].hide()
+                self['Genre'].hide()
+                self['genre'].hide()
+                return
+            if self.xd == True:
+                if len(name) > 66:
+                    if name[65:66] == ' ':
+                        name = name[0:65]
+                    else:
+                        name = name[0:66] + 'FIN'
+                        name = sub(' \\S+FIN', '', name)
+                    name = name + '...'
+            elif len(name) > 63:
+                if name[62:63] == ' ':
+                    name = name[0:62]
+                else:
+                    name = name[0:63] + 'FIN'
+                    name = sub(' \\S+FIN', '', name)
+                name = name + '...'
+            self['name'].setText(str(name))
+            self['name'].show()
+            self.setTitle(str(name))
+        except IndexError as e:
+            self['name'].hide()
+
+        try:
+            artist = self.artistlist[count]
+            self['Artist'].show()
+            self['artist'].setText(artist)
+            self['artist'].show()
+        except IndexError as e:
+            self['Artist'].hide()
+            self['artist'].hide()
+
+        try:
+            album = self.albumlist[count]
+            self['Album'].show()
+            self['album'].setText(album)
+            self['album'].show()
+        except IndexError as e:
+            self['Album'].hide()
+            self['album'].hide()
+
+        try:
+            number = self.numberlist[count]
+            self['Number'].show()
+            self['number'].setText(number)
+            self['number'].show()
+        except IndexError as e:
+            self['Number'].hide()
+            self['number'].hide()
+
+        try:
+            track = self.tracklist[count]
+            self['Track'].show()
+            self['track'].setText(track)
+            self['track'].show()
+        except IndexError as e:
+            self['Track'].hide()
+            self['track'].hide()
+
+        try:
+            year = self.yearlist[count]
+            self['Year'].show()
+            self['year'].setText(year)
+            self['year'].show()
+        except IndexError as e:
+            self['Year'].hide()
+            self['year'].hide()
+
+        try:
+            runtime = self.runtimelist[count]
+            self['Runtime'].show()
+            self['runtime'].setText(runtime)
+            self['runtime'].show()
+        except IndexError as e:
+            self['Runtime'].hide()
+            self['runtime'].hide()
+
+        try:
+            bitrate = self.bitratelist[count]
+            self['Bitrate'].show()
+            self['bitrate'].setText(bitrate)
+            self['bitrate'].show()
+        except IndexError as e:
+            self['Bitrate'].hide()
+            self['bitrate'].hide()
+
+        try:
+            genres = self.genrelist[count]
+            self['Genre'].show()
+            self['genre'].setText(genres)
+            self['genre'].show()
+        except IndexError as e:
+            self['Genre'].hide()
+            self['genre'].hide()
+
+    def getLyrics(self):
+        self.ready = False
+        # print("[MP3Browser][getLyrics] entered")
+        try:
+            self.artist = self.artistlist[self.index]
+            self.track = self.tracklist[self.index]
+        except IndexError as e:
+                print("[MP3Browser][makeLyrics] Indexerror",  e)
+                return            
+        if self.artist == self.artistold and self.track == self.trackold:
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            self.ready = True
+        else:
+            self.artistold = self.artist
+            self.trackold = self.track
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            if fileExists(lyricsfile):
+                self.lyrics = open(lyricsfile).read()
+                self.lyrics = transHTML(self.lyrics)
+                self['discogs'].setText(self.lyrics)
+                self['discogs'].show()
+                self.ready = True
+            else:
+                self['discogs'].setText('')
+                artist = transCHARTLYRICS(self.artist.lower())
+                track = transCHARTLYRICS(self.track.lower())
+                url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=%s&song=%s' % (artist, track)
+                url = url.encode()
+                getPage(url).addCallback(self.makeLyrics).addErrback(self.downloadLyricsError)
+
+    def makeLyrics(self, output):
+        output = output.decode()
+        # print("[MP3Browser][makeLyrics] entered output is  ", output)    
+        lyrics = findall('<Lyric>(.*?)</Lyric>', output, flags=DOTALL)
+        if lyrics:
+            self.lyrics = lyrics[0].replace('amp;', '')
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            f = open(lyricsfile, 'w')
+            f.write(self.lyrics)
+            f.close()
+            self.ready = True
+        else:
+            self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
+            artistntrack = transLYRICSTIME(artistntrack)
+            url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
+            url = url.encode()
+            getPage(url).addCallback(self.makeLyricsTime).addErrback(self.downloadLyricsTimeError)
+
+    def makeLyricsTime(self, output):
+        output = output.decode()
+        # print("[MP3Browser][makeLyricsTime] entered output is  ", output)    
+        lyrics = findall('<div id="songlyrics".*?<p>\r\n(.*?)</p>', output, flags=DOTALL)
+        if lyrics:
+            self.lyrics = lyrics[0].replace('\t<br />\n<br />\n', '').replace('<br />', '').replace('\t', '')
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+            filepath = self.mp3list[self.index]
+            filename = sub('.*?[/]', '', filepath)
+            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
+            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
+            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
+            f = open(lyricsfile, 'w')
+            f.write(self.lyrics)
+            f.close()
+        else:
+            self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
+        self.ready = True
+
+    def getDiscogs(self):
+        self.ready = False
+        try:
+            self.artist = self.artistlist[self.index]
+        except IndexError as e:
+                    print("[MP3Browser][getDiscogs] Indexerror",  e)
+                    return        
+        if self.artist == self.artistdisco:
+            self['discogs'].setText(self.profile)
+            self['googlePoster'].show()
+            self.ready = True
+        else:
+            self.artistdisco = self.artist
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+            if fileExists(discogsfile):
+                self.profile = open(discogsfile).read()
+                self['discogs'].setText(self.profile)
+                self['discogs'].show()
+                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
+                posterpng = discogsfile.replace('.discogs', '.png')
+                posterbmp = discogsfile.replace('.discogs', '.bmp')
+                if fileExists(posterjpeg):
+                    if self.xd == False:
+                        Poster = loadPic(posterjpeg, 500, 375, 3, 0, 0, 0)
+                    else:
+                        Poster = loadPic(posterjpeg, 440, 330, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                elif fileExists(posterpng):
+                    if self.xd == False:
+                        Poster = loadPic(posterpng, 500, 375, 3, 0, 0, 0)
+                    else:
+                        Poster = loadPic(posterpng, 440, 330, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                elif fileExists(posterbmp):
+                    if self.xd == False:
+                        Poster = loadPic(posterbmp, 500, 375, 3, 0, 0, 0)
+                    else:
+                        Poster = loadPic(posterbmp, 440, 330, 3, 0, 0, 0)
+                    self['googlePoster'].instance.setPixmap(Poster)
+                    self['googlePoster'].show()
+                self.ready = True
+            else:
+                self['discogs'].setText('')
+                self['googlePoster'].hide()
+                artist = self.artist.lower()
+                if artist.startswith('the '):
+                    artist = artist.replace('the ', '') + '%2C%20the'
+                artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
+                url = 'http://api.discogs.com/artist/' + artist
+                url = url.encode()
+                getPage(url).addCallback(self.makeDiscogs).addErrback(self.downloadDiscogsError)
+
+    def makeDiscogs(self, output):
+        output = output.decode()
+        if search('Artist not found', output) is not None:
+            self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
+            self['discogs'].setText(self.profile)
+        else:
+            profile = findall('"profile": "(.*?)", "releases_url"', output)
+            members = findall('"members": \\[(.*?)\\],', output)
+            if profile and members:
+                profile = transDISCOGS(profile[0])
+                members = transDISCOGS(members[0])
+                members = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
+                self.profile = profile + '\n\n' + members
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+
+            elif profile:
+                self.profile = transDISCOGS(profile[0])
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+
+            elif members:
+                members = transDISCOGS(members[0])
+                self.profile = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
+                self.profile = self.profile.replace('\\r\\n', '\n')
+                self['discogs'].setText(self.profile)
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+                f = open(discogsfile, 'w')
+                f.write(self.profile)
+                f.close()
+            else:
+                self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
+                self['discogs'].setText(self.profile)
+        self.ready = True
+        return
+
+    def makePoster(self, page):
+        for x in list(range(self.posterALL)):
+            try:
+                index = x + page * self.posterALL
+                posterurl = self.posterlist[index]
+                poster = sub('.*?[/]', '', posterurl)
+                poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
+                print("[MP3Browser][makePoster]2 posterurl, poster",  posterurl, poster)
+                if fileExists(poster):
+                    if self.xd == False:
+                        Poster = loadPic(poster, 140, 140, 3, 0, 0, 0)
+                    else:
+                        Poster = loadPic(poster, 110, 110, 3, 0, 0, 0)
+                    if Poster != None:
+                        self[('poster' + str(x))].instance.setPixmap(Poster)
+                        self[('poster' + str(x))].show()
+                elif "default" in posterurl:
+                    print("[MP3Browser][makePoster]2 found default in posterurl",  posterurl)                
+                    poster = defaultfolder_png if "default_folder" in posterurl else default_png
+                    Poster = loadPic(poster, 140, 140, 3, 0, 0, 0) if self.xd == False else loadPic(poster, 110, 110, 3, 0, 0, 0)
+                    if Poster != None:
+                        self[('poster' + str(x))].instance.setPixmap(Poster)
+                        self[('poster' + str(x))].show()                
+                elif search('http', posterurl) is not None:
+                    print("[MP3Browser][makePoster]2 found http not default in posterurl",  posterurl)
+                    posterurl = posterurl.encode()
+                    getPage(posterurl).addCallback(self.getPoster, x, poster).addErrback(self.downloadError)
+                else:
+                    filename = self.mp3list[index]
+                    audio = ID3(filename)
+                    poster = audio.getall('APIC')
+                    if len(poster) > 0:
+                        f = open(posterurl, 'wb')
+                        f.write(poster[0].data)
+                        f.close()
+                        if self.xd == False:
+                            Poster = loadPic(posterurl, 140, 140, 3, 0, 0, 0)
+                        else:
+                            Poster = loadPic(posterurl, 110, 110, 3, 0, 0, 0)
+                        if Poster != None:
+                            self[('poster' + str(x))].instance.setPixmap(Poster)
+                            self[('poster' + str(x))].show()
+            except IndexError as e:
+                print("[MP3Browser][makePoster] Indexerror  x, page, self.posterall, e", x, "   ",  page, "   ", self.posterALL,  e)            
+                self[('poster' + str(x))].hide()
+        self[('poster_back' + str(self.wallindex))].hide()
+        return
+
+    def getPoster(self, output, x, poster):
+        output = output.decode()
+        f = open(poster, 'wb')
+        f.write(output)
+        f.close()
+        if self.xd == False:
+            Poster = loadPic(poster, 140, 140, 3, 0, 0, 0)
+        else:
+            Poster = loadPic(poster, 110, 110, 3, 0, 0, 0)
+        if Poster != None:
+            self[('poster' + str(x))].instance.setPixmap(Poster)
+            self[('poster' + str(x))].show()
+        return
+
+    def paintFrame(self):
+        try:
+            pos = self.positionlist[self.wallindex]
+            self['frame'].instance.move(ePoint(pos[0], pos[1]))
+            self[('poster_back' + str(self.walloldindex))].show()
+            self[('poster_back' + str(self.wallindex))].hide()
+            posterurl = self.posterlist[self.index]
+            poster = sub('.*?[/]', '', posterurl)
+            poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
+            if fileExists(poster):
+                if self.xd == False:
+                    Poster = loadPic(poster, 172, 172, 3, 0, 0, 0)
+                else:
+                    Poster = loadPic(poster, 130, 130, 3, 0, 0, 0)
+                if Poster != None:
+                    self['frame'].instance.setPixmap(Poster)
+        except IndexError as e:
+            print("[MP3Browser][paintFrame] Indexerror",  e)
+
+        return
+
+    def down(self):
+        if self.ready == True:
+            if self.toggle == 2 or self.toggle == 3:
+                self['discogs'].pageDown()
+            else:
+                self.walloldindex = self.wallindex
+                self.wallindex += self.posterX
+                if self.pagecount == self.pagemax - 1 and self.wallindex > self.posterALL + self.posterREST - 2:
+                    self.wallindex = self.posterREST - 1
+                    if self.wallindex < 0:
+                        self.wallindex = 0
+                    self.pagecount += 1
+                    self.makePoster(self.pagecount - 1)
+                    self.index = self.maxentry - 1
+                elif self.pagecount == self.pagemax and self.wallindex > self.posterREST - 1:
+                    if self.wallindex >= self.posterX:
+                        self.wallindex = self.wallindex % self.posterX
+                    self.pagecount = 1
+                    self.makePoster(self.pagecount - 1)
+                    if self.wallindex >= self.maxentry % self.posterX:
+                        self.index = self.index + (self.posterX + self.maxentry % self.posterX)
+                        if self.index >= self.maxentry:
+                            self.index = self.index - self.maxentry
+                    else:
+                        self.index = self.index + self.maxentry % self.posterX
+                        if self.index >= self.maxentry:
+                            self.index = self.index - self.maxentry
+                elif self.wallindex > self.posterALL - 1:
+                    self.wallindex = self.wallindex - self.posterALL
+                    if self.wallindex < 0:
+                        self.wallindex = 0
+                    self.pagecount += 1
+                    self.makePoster(self.pagecount - 1)
+                    self.index = self.index + self.posterX
+                    if self.index >= self.maxentry:
+                        self.index = self.index - self.maxentry
+                else:
+                    self.index = self.index + self.posterX
+                    if self.index >= self.maxentry:
+                        self.index = self.index - self.maxentry
+                self.paintFrame()
+                if self.infofull == True:
+#                    try:
+                    self.makeInfo(self.index)
+#                    except IndexError as e:
+#                        print("[MP3Browser][down   ] Indexerror",  e)
+
+                if self.toggle == 2:
+                    self.getLyrics()
+                elif self.toggle == 3:
+                    self.hideInfo()
+                    self['infoback'].show()
+                    self.getDiscogs()
+
+    def up(self):
+        if self.ready == True:
+            if self.toggle == 2 or self.toggle == 3:
+                self['discogs'].pageUp()
+            else:
+                self.walloldindex = self.wallindex
+                self.wallindex -= self.posterX
+                if self.wallindex < 0:
+                    if self.pagecount == 1:
+                        if self.walloldindex < self.posterREST % self.posterX:
+                            self.wallindex = self.posterREST // self.posterX * self.posterX + self.walloldindex
+                            if self.wallindex < 0:
+                                self.wallindex = 0
+                            self.index = self.index - self.posterREST % self.posterX
+                            if self.index < 0:
+                                self.index = self.maxentry + self.index
+                        else:
+                            self.wallindex = self.posterREST - 1
+                            if self.wallindex < 0:
+                                self.wallindex = 0
+                            self.index = self.maxentry - 1
+                        self.pagecount = self.pagemax
+                        self.makePoster(self.pagecount - 1)
+                    else:
+                        self.wallindex = self.posterALL + self.wallindex
+                        if self.wallindex < 0:
+                            self.wallindex = 0
+                        self.pagecount -= 1
+                        self.makePoster(self.pagecount - 1)
+                        self.index = self.index - self.posterX
+                        if self.index < 0:
+                            self.index = self.maxentry + self.index
+                else:
+                    self.index = self.index - self.posterX
+                    if self.index < 0:
+                        self.index = self.maxentry + self.index
+                self.paintFrame()
+                if self.infofull == True:
+#                    try:
+                    self.makeInfo(self.index)
+#                    except IndexError as e:
+#                        print("[MP3Browser][up   ] Indexerror",  e)
+
+                if self.toggle == 2:
+                    self.getLyrics()
+                elif self.toggle == 3:
+                    self.hideInfo()
+                    self['infoback'].show()
+                    self.getDiscogs()
+
+    def rightDown(self):
+        if self.ready == True:
+            self.walloldindex = self.wallindex
+            self.wallindex += 1
+            if self.pagecount == self.pagemax and self.wallindex > self.posterREST - 1:
+                self.wallindex = 0
+                self.pagecount = 1
+                self.makePoster(self.pagecount - 1)
+            elif self.wallindex == self.posterALL:
+                self.wallindex = 0
+                self.pagecount += 1
+                self.makePoster(self.pagecount - 1)
+            self.index += 1
+            if self.index == self.maxentry:
+                self.index = 0
+            self.paintFrame()
+            if self.infofull == True:
+#                try:
+                self.makeInfo(self.index)
+#                except IndexError as e:
+#                    print("[MP3Browser][rightDown   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def leftUp(self):
+        if self.ready == True:
+            self.walloldindex = self.wallindex
+            self.wallindex -= 1
+            if self.wallindex < 0:
+                if self.pagecount == 1:
+                    self.wallindex = self.posterREST - 1
+                    self.pagecount = self.pagemax
+                else:
+                    self.wallindex = self.posterALL - 1
+                    self.pagecount -= 1
+                if self.wallindex < 0:
+                    self.wallindex = 0
+                self.makePoster(self.pagecount - 1)
+            self.index -= 1
+            if self.index < 0:
+                self.index = self.maxentry - 1
+            self.paintFrame()
+            if self.infofull == True:
+#                try:
+                self.makeInfo(self.index)
+#                except IndexError as e:
+#                    print("[MP3Browser][leftUP   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def PageDown(self):
+        if self.ready == True:
+            self.walloldindex = self.wallindex
+            self.wallindex += self.posterALL
+            if self.pagecount == self.pagemax - 1 and self.wallindex > self.posterALL + self.posterREST - 2:
+                self.wallindex = self.posterREST - 1
+                if self.wallindex < 0:
+                    self.wallindex = 0
+                self.pagecount += 1
+                self.makePoster(self.pagecount - 1)
+                self.index = self.maxentry - 1
+            elif self.pagecount == self.pagemax and self.wallindex > self.posterREST - 1:
+                if self.wallindex >= self.posterX:
+                    self.wallindex = self.wallindex % self.posterX
+                self.pagecount = 1
+                self.makePoster(self.pagecount - 1)
+                if self.wallindex >= self.maxentry % self.posterX:
+                    self.index = self.wallindex
+                    if self.index >= self.maxentry:
+                        self.index = self.index - self.maxentry
+                else:
+                    self.index = self.index + self.maxentry % self.posterX
+                    if self.index >= self.maxentry:
+                        self.index = self.index - self.maxentry
+            elif self.wallindex > self.posterALL - 1:
+                self.wallindex = self.wallindex - self.posterALL
+                if self.wallindex < 0:
+                    self.wallindex = 0
+                self.pagecount += 1
+                self.makePoster(self.pagecount - 1)
+                self.index = self.index + self.posterALL
+                if self.index >= self.maxentry:
+                    self.index = self.index - self.maxentry
+            else:
+                self.index = self.index + self.posterALL
+                if self.index >= self.maxentry:
+                    self.index = self.index - self.maxentry
+            self.paintFrame()
+            if self.infofull == True:
+#                try:
+                self.makeInfo(self.index)
+#                except IndexError as e:
+#                    print("[MP3Browser][PageDown   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def PageUp(self):
+        if self.ready == True:
+            self.walloldindex = self.wallindex
+            self.wallindex -= self.posterALL
+            if self.wallindex < 0:
+                if self.pagecount == 1:
+                    if self.walloldindex < self.posterREST % self.posterX:
+                        self.wallindex = self.posterREST // self.posterX * self.posterX + self.walloldindex
+                        if self.wallindex < 0:
+                            self.wallindex = 0
+                        self.index = self.index - self.posterREST % self.posterX
+                        if self.index < 0:
+                            self.index = self.maxentry + self.index
+                    else:
+                        self.wallindex = self.posterREST - 1
+                        if self.wallindex < 0:
+                            self.wallindex = 0
+                        self.index = self.maxentry - 1
+                    self.pagecount = self.pagemax
+                    self.makePoster(self.pagecount - 1)
+                else:
+                    self.wallindex = self.posterALL + self.wallindex
+                    if self.wallindex < 0:
+                        self.wallindex = 0
+                    self.pagecount -= 1
+                    self.makePoster(self.pagecount - 1)
+                    self.index = self.index - self.posterALL
+                    if self.index < 0:
+                        self.index = self.maxentry + self.index
+            else:
+                self.index = self.index - self.posterALL
+                if self.index < 0:
+                    self.index = self.maxentry + self.index
+            self.paintFrame()
+            if self.infofull == True:
+#                try:
+                self.makeInfo(self.index)
+#                except IndexError as e:
+#                    print("[MP3Browser][PageUp   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def gotoEnd(self):
+        if self.ready == True:
+            self.walloldindex = self.wallindex
+            self.wallindex = self.posterREST - 1
+            if self.wallindex < 0:
+                self.wallindex = 0
+            self.pagecount = self.pagemax
+            self.makePoster(self.pagecount - 1)
+            self.index = self.maxentry - 1
+            self.paintFrame()
+            if self.infofull == True:
+#                try:
+                self.makeInfo(self.index)
+#                except IndexError as e:
+#                    print("[MP3Browser][   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+
+    def showMP3(self):
+        if self.ready == True:
+            mp3s = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                for line in f:
+                    if self.filter in line:
+                        mp3line = line.split(':::')
+                        try:
+                            mp3 = mp3line[3] + ' - ' + mp3line[6]
+                        except IndexError as e:
+                            mp3 = ' '
+
+                        if mp3 != ' ':
+                            mp3s = mp3s + mp3 + ':::'
+
+                if self.showfolder == True:
+                    if self.lang == 'de':
+                        mp3s = mp3s + '<Liste der MP3 Ordner>' + ':::'
+                    else:
+                        mp3s = mp3s + '<List of MP3 Folder>' + ':::'
+                self.mp3s = [ i for i in mp3s.split(':::') ]
+                self.mp3s.pop()
+                f.close()
+                self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
+
+    def gotoMP3(self, index):
+        if index is not None:
+            self.index = index
+            self.walloldindex = self.wallindex
+            self.wallindex = self.index % self.posterALL
+            self.pagecount = self.index // self.posterALL + 1
+            self.makePoster(self.pagecount - 1)
+            self.paintFrame()
+            if self.infofull == True:
+                try:
+                    self.makeInfo(self.index)
+                except IndexError as e:
+                    print("[MP3Browser][gotoMP3   ] Indexerror",  e)
+
+            if self.toggle == 2:
+                self.getLyrics()
+            elif self.toggle == 3:
+                self.hideInfo()
+                self['infoback'].show()
+                self.getDiscogs()
+        return
+
+    def gotoABC(self):
+        self.session.openWithCallback(self.enterABC, getABC, self.ABC, False)
+
+    def gotoXYZ(self):
+        self.session.openWithCallback(self.enterABC, getABC, self.ABC, True)
+
+    def enterABC(self, ABC):
+        if ABC is None:
+            pass
+        else:
+            self.ABC = ABC
+            ABC = ABC[0].lower()
+            try:
+                self.index = next(index for index, value in enumerate(self.artistlist) if value.lower().replace('der ', '').replace('die ', '').replace('das ', '').replace('the ', '').startswith(ABC))
+                self.walloldindex = self.wallindex
+                self.wallindex = self.index % self.posterALL
+                self.pagecount = self.index // self.posterALL + 1
+                self.makePoster(self.pagecount - 1)
+                self.paintFrame()
+                if self.infofull == True:
+                    try:
+                        self.makeInfo(self.index)
+                    except IndexError as e:
+                        print("[MP3Browser][enterABC] Indexerror",  e)
+
+                if self.toggle == 2:
+                    self.getLyrics()
+                elif self.toggle == 3:
+                    self.hideInfo()
+                    self['infoback'].show()
+                    self.getDiscogs()
+            except StopIteration as e:
+                print("[MP3Browser][enterABC] iteration errors",  e)
+
+        return
+
+    def filterFolder(self):
+        if self.ready == True:
+            max = 25
+            folder = config.plugins.mp3browser.mp3folder.value
+            self.folders = []
+            self.folders.append(folder[:-1])
+            for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
+                for name in dirs:
+                    folder = os.path.join(root, name)
+                    self.folders.append(folder)
+                    if len(folder) > max:
+                        max = len(folder)
+
+            self.folders.sort()
+            if self.lang == 'de':
+                self.session.openWithCallback(self.filter_return, filterList, self.folders, 'MP3 Ordner Auswahl', len(self.folders), max)
+            else:
+                self.session.openWithCallback(self.filter_return, filterList, self.folders, 'MP3 Folder Selection', len(self.folders), max)
+        return
+
+    def filterArtist(self):
+        if self.ready == True:
+            artists = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        artist = mp3line[3]
+                    except IndexError as e:
+                        artist = ' '
+
+                    if artist != ' ':
+                        artists = artists + artist + ':::'
+
+                self.artists = [ i for i in artists.split(':::') ]
+                self.artists.sort()
+                self.artists.pop(0)
+                try:
+                    last = self.artists[(-1)]
+                    for i in range(len(self.artists) - 2, -1, -1):
+                        if last == self.artists[i]:
+                            del self.artists[i]
+                        else:
+                            last = self.artists[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][filterArtist] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Interpreten Auswahl', len(self.artists), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
+
+    def filterAlbum(self):
+        if self.ready == True:
+            albums = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        album = mp3line[4]
+                    except IndexError as e:
+                        album = ' '
+
+                    if album != ' ':
+                        albums = albums + album + ':::'
+
+                self.albums = [ i for i in albums.split(':::') ]
+                self.albums.sort()
+                self.albums.pop(0)
+                try:
+                    last = self.albums[(-1)]
+                    for i in range(len(self.albums) - 2, -1, -1):
+                        if last == self.albums[i]:
+                            del self.albums[i]
+                        else:
+                            last = self.albums[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][filterAlbum] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Auswahl', len(self.albums), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
+
+    def filterGenre(self):
+        if self.ready == True:
+            genres = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                max = 25
+                for line in f:
+                    mp3line = line.split(':::')
+                    try:
+                        genre = mp3line[8]
+                    except IndexError as e:
+                        genre = ' '
+
+                    if genre != ' ':
+                        genres = genres + genre + ', '
+
+                self.genres = [ i for i in genres.split(', ') ]
+                self.genres.sort()
+                self.genres.pop(0)
+                try:
+                    last = self.genres[(-1)]
+                    for i in range(len(self.genres) - 2, -1, -1):
+                        if last == self.genres[i]:
+                            del self.genres[i]
+                        else:
+                            last = self.genres[i]
+                            if len(last) > max:
+                                max = len(last)
+
+                except IndexError as e:
+                    print("[MP3Browser][fliterGenre] Indexerror",  e)
+
+                if self.lang == 'de':
+                    self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Auswahl', len(self.genres), max)
+                else:
+                    self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
+
+    def filter_return(self, filter):
+        if filter and filter is not None:
+            self[('poster_back' + str(self.wallindex))].show()
+            self.index = 0
+            self.wallindex = 0
+            self.pagecount = 1
+            self.walloldindex = 0
+            self.pagemax = 1
+            self.makeMP3(filter)
+        return
+
+    def sortDatabase(self):
+        self.sortorder = config.plugins.mp3browser.sortorder.value
+        f = open(self.database, 'r')
+        lines = f.readlines()
+        f.close()
+        try:
+            if self.sortorder == 'artist':
+                lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'artist_reverse':
+                lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'album':
+                lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'album_reverse':
+                lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'track':
+                lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'track_reverse':
+                lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'genre':
+                lines.sort(key=lambda line: line.split(':::')[8])
+            elif self.sortorder == 'genre_reverse':
+                lines.sort(key=lambda line: line.split(':::')[8], reverse=True)
+            elif self.sortorder == 'year':
+                lines.sort(key=lambda line: line.split(':::')[7])
+            elif self.sortorder == 'year_reverse':
+                lines.sort(key=lambda line: line.split(':::')[7], reverse=True)
+            elif self.sortorder == 'date':
+                lines.sort(key=lambda line: line.split(':::')[2])
+            elif self.sortorder == 'date_reverse':
+                lines.sort(key=lambda line: line.split(':::')[2], reverse=True)
+            elif self.sortorder == 'folder':
+                lines.sort(key=lambda line: line.split(':::')[1])
+            elif self.sortorder == 'folder_reverse':
+                lines.sort(key=lambda line: line.split(':::')[1], reverse=True)
+            elif self.sortorder == 'runtime':
+                lines.sort(key=lambda line: line.split(':::')[9])
+            elif self.sortorder == 'runtime_reverse':
+                lines.sort(key=lambda line: line.split(':::')[9], reverse=True)
+        except IndexError as e:
+            print("[MP3Browser][sortDatabase] Indexerror",  e)
+
+        fsorted = open(self.database + '.sorted', 'w')
+        fsorted.writelines(lines)
+        fsorted.close()
+        os.rename(self.database + '.sorted', self.database)
+
+    def editDatabase(self):
+        if self.ready == True:
+            try:
+                mp3 = self.mp3list[self.index]
+            except IndexError as e:
+                mp3 = 'None'
+
+            self.session.openWithCallback(self.returnDatabase, mp3Database, mp3)
+
+    def returnDatabase(self, changed):
+        if changed is True:
+            mp3 = self.mp3list[self.index]
+            mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+            self.sortDatabase()
+            f = open(self.database, 'r')
+            count = 0
+            for line in f:
+                if self.filter in line:
+                    if mp3 in line:
+                        self.index = count
+                        break
+                    count += 1
+
+            f.close()
+            self.makeMP3(self.filter)
+
+
+    def showPath(self):
+        if self.ready == True:
+            self.session.open(MessageBox, '\nMP3 File:\n%s' % self.mp3list[self.index], MessageBox.TYPE_INFO, close_on_any_key=True)
+
+    def getIndex(self, list):
+        return list.getSelectedIndex()
+
+    def download(self, link, name):
+        print("[download] link=%s, name =%s" % (link, name))
+        link = link.encode()      
+        getPage(link).addCallback(name).addErrback(self.downloadError)
+
+    def downloadError(self, output):
+        self.ready = True
+
+    def downloadLyricsError(self, output):
+        self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
+        self['discogs'].setText(self.lyrics)
+        self['discogs'].show()
+        artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
+        artistntrack = transLYRICSTIME(artistntrack)
+        url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
+        url = url.encode()
+        getPage(url).addCallback(self.makeLyricsTime).addErrback(self.downloadLyricsTimeError)
+
+    def downloadLyricsTimeError(self, output):
+        output = output.decode()
+        self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+        self['discogs'].setText(self.lyrics)
+        self['discogs'].show()
+        self.ready = True
+
+    def downloadDiscogsError(self, output):
+        output = output.decode()
+        self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
+        self['discogs'].setText(self.profile)
+        self['googlePoster'].hide()
+        self.ready = True
+
+    def config(self):
+        if self.ready == True:
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.session.openWithCallback(self.close, mp3BrowserConfig)
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def showHelp(self):
+        if self.showhelp == False:
+            self.showhelp = True
+            self.toogleHelp.show()
+        else:
+            self.showhelp = False
+            self.toogleHelp.hide()
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+    def exit(self):
+        if self.showhelp == True:
+            self.showhelp = False
+            self.toogleHelp.hide()
+        elif config.plugins.mp3browser.showinfo.value == 'oninfo' and self.infofull == True:
+            self.toggle = 0
+            self.infofull = False
+            self.hideInfo()
+            self.hideDiscogs()
+        elif config.plugins.mp3browser.showinfo.value == 'info' and self.toggle > 1:
+            self.toggle = 1
+            self.hideDiscogs()
+            try:
+                self.makeInfo(self.index)
+            except IndexError as e:
+                self.showInfo()
+
+        elif config.plugins.mp3browser.showinfo.value == 'always' and self.toggle == 3:
+            self.toggle = 2
+            self['googlePoster'].hide()
+            self['discogs'].hide()
+            try:
+                self.makeInfo(self.index)
+            except IndexError as e:
+                self.showInfo()
+
+            self.getLyrics()
+        else:
+            self.playready = False
+            if self.background == True or config.plugins.mp3browser.showtv.value == 'hide':
+                self.session.nav.playService(self.oldService)
+            if config.plugins.mp3browser.lastmp3.value == 'yes':
+                try:
+                    mp3 = self.mp3list[self.index]
+                    f = open(self.lastfile, 'w')
+                    f.write(mp3)
+                    f.close()
+                except IndexError as e:
+                    print("[MP3Browser][exit] Indexerror",  e)
+
+            if config.plugins.mp3browser.lastfilter.value == 'yes':
+                f = open(self.lastfilter, 'w')
+                f.write(self.filter)
+                f.close()
+            self.session.deleteDialog(self.toogleHelp)
+            config.usage.on_movie_stop.value = self.movie_stop
+            config.usage.on_movie_eof.value = self.movie_eof
+            self.close()
+
+
+class mp3Database(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="730,300" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="730,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logo.png" zPosition="1"/>\n\t\t\t\t<widget name="list" position="10,38" size="710,250" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t\t<widget name="list2" position="10,38" size="710,250" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, mp3):
+        Screen.__init__(self, session)
+        print("[MP3Browser][mp3Database] ")        
+        self.hideflag = True
+        self.ready = False
+        self.change = False
+        self.mp3 = mp3
+        self.lang = config.plugins.mp3browser.language.value
+        self['list'] = ItemList([])
+        self['list2'] = ItemList([])
+        self.actlist = 'list'
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'right': self.rightDown, 
+           'left': self.leftUp, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.zap, 
+           'prevBouquet': self.zap, 
+           'red': self.infoScreen, 
+           'yellow': self.infoScreen, 
+           'blue': self.hideScreen, 
+           '0': self.gotoEnd, 
+           'displayHelp': self.infoScreen}, -1)
+        self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        self.onLayoutFinish.append(self.makeList)
+
+    def makeList(self):
+        self.mp3list = []
+        self.datelist = []
+        self.artistlist = []
+        self.albumlist = []
+        self.numberlist = []
+        self.tracklist = []
+        self.yearlist = []
+        self.runtimelist = []
+        self.bitratelist = []
+        self.genrelist = []
+        self.posterlist = []
+        self.list = []
+        self.listentries = []
+        if fileExists(self.database):
+            count = 0
+            index = 0
+            f = open(self.database, 'r')
+            for line in f:
+                mp3line = line.split(':::')
+                try:
+                    mp3 = mp3line[1]
+                    if mp3 == self.mp3:
+                        index = count
+                except IndexError as e:
+                    mp3 = ' '
+
+                try:
+                    date = mp3line[2]
+                except IndexError as e:
+                    date = ' '
+
+                try:
+                    artist = mp3line[3]
+                except IndexError as e:
+                    artist = ' '
+
+                try:
+                    album = mp3line[4]
+                except IndexError as e:
+                    album = ' '
+
+                try:
+                    number = mp3line[5]
+                except IndexError as e:
+                    number = ' '
+
+                try:
+                    track = mp3line[6]
+                except IndexError as e:
+                    track = ' '
+
+                try:
+                    year = mp3line[7]
+                except IndexError as e:
+                    year = ' '
+
+                try:
+                    genre = mp3line[8]
+                except IndexError as e:
+                    genre = ' '
+
+                try:
+                    runtime = mp3line[9]
+                except IndexError as e:
+                    runtime = ' '
+
+                try:
+                    bitrate = mp3line[10]
+                except IndexError as e:
+                    bitrate = ' '
+
+                try:
+                    poster = mp3line[11]
+                except IndexError as e:
+                    poster = 'http://sites.google.com/site/kashmirplugins/home/mp3-browser/default.png'
+
+                self.mp3list.append(mp3)
+                self.datelist.append(date)
+                self.artistlist.append(artist)
+                self.albumlist.append(album)
+                self.numberlist.append(number)
+                self.tracklist.append(track)
+                self.yearlist.append(year)
+                self.genrelist.append(genre)
+                self.runtimelist.append(runtime)
+                self.bitratelist.append(bitrate)
+                self.posterlist.append(poster)
+                self.list.append(artist + ' - ' + track)
+                count += 1
+                res = ['']
+                res.append(MultiContentEntryText(pos=(0, 0), size=(710, 25), font=20, color=16777215, backcolor_sel=16777215, color_sel=0, flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER, text=artist + ' - ' + track))
+                self.listentries.append(res)
+
+            self['list'].l.setList(self.listentries)
+            self['list'].moveToIndex(index)
+            self.selectList()
+            self.ready = True
+            totalMP3 = len(self.list)
+            if self.lang == 'de':
+                database = 'Datenbank'
+                free = 'freier Speicher'
+                folder = 'Ordner'
+            else:
+                database = 'Database'
+                free = 'free Space'
+                folder = 'Folder'
+            if os.path.exists(config.plugins.mp3browser.mp3folder.value):
+                stat = os.statvfs(config.plugins.mp3browser.mp3folder.value)
+                freeSize = stat.f_bsize * stat.f_bfree // 1024 // 1024 // 1024
+                title = '%s Editor: %s MP3s (%s GB %s)' % (database, str(totalMP3), str(freeSize), free)
+                self.setTitle(title)
+            else:
+                title = '%s Editor: %s MP3s (MP3 %s offline)' % (database, str(totalMP3), folder)
+                self.setTitle(title)
+
+    def makeList2(self):
+        self.list2 = []
+        if self.lang == 'de':
+            self.list2.append('Interpret: ' + self.artistlist[self.index])
+            self.list2.append('Album: ' + self.albumlist[self.index])
+            self.list2.append('Jahr: ' + self.yearlist[self.index])
+            self.list2.append('Titel: ' + self.tracklist[self.index])
+            self.list2.append('Nummer: ' + self.numberlist[self.index])
+            self.list2.append('Laufzeit: ' + self.runtimelist[self.index])
+            self.list2.append('Bitrate: ' + self.bitratelist[self.index])
+            self.list2.append('Genre: ' + self.genrelist[self.index])
+            self.list2.append('Cover: ' + self.posterlist[self.index])
+        else:
+            self.list2.append('Artist: ' + self.artistlist[self.index])
+            self.list2.append('Album: ' + self.albumlist[self.index])
+            self.list2.append('Year: ' + self.yearlist[self.index])
+            self.list2.append('Track: ' + self.tracklist[self.index])
+            self.list2.append('Number: ' + self.numberlist[self.index])
+            self.list2.append('Runtime: ' + self.runtimelist[self.index])
+            self.list2.append('Bitrate: ' + self.bitratelist[self.index])
+            self.list2.append('Genre: ' + self.genrelist[self.index])
+            self.list2.append('Cover: ' + self.posterlist[self.index])
+        self.list2entries = []
+        idx = 0
+        for x in self.list2:
+            idx += 1
+
+        for i in list(range(idx)):
+            try:
+                res = [
+                 '']
+                res.append(MultiContentEntryText(pos=(0, 0), size=(710, 25), font=20, color=16777215, backcolor_sel=16777215, color_sel=0, flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER, text=self.list2[i]))
+                self.list2entries.append(res)
+            except IndexError as e:
+                print("[MP3Browser][   ] Indexerror",  e)
+
+        self['list2'].l.setList(self.list2entries)
+        self.selectList2()
+
+    def ok(self):
+        if self.ready == True:
+            if self.actlist == 'list':
+                self.index = self['list'].getSelectedIndex()
+                mp3 = self.mp3list[self.index]
+                self.mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
+                self.makeList2()
+            elif self.actlist == 'list2':
+                index = self['list2'].getSelectedIndex()
+                if index == 0:
+                    self.data = self.artistlist[self.index]
+                elif index == 1:
+                    self.data = self.albumlist[self.index]
+                elif index == 2:
+                    self.data = self.yearlist[self.index]
+                elif index == 3:
+                    self.data = self.tracklist[self.index]
+                elif index == 4:
+                    self.data = self.numberlist[self.index]
+                elif index == 5:
+                    self.data = self.runtimelist[self.index]
+                elif index == 6:
+                    self.data = self.bitratelist[self.index]
+                elif index == 7:
+                    self.data = self.genrelist[self.index]
+                elif index == 8:
+                    self.data = self.posterlist[self.index]
+                self.session.openWithCallback(self.changeData, VirtualKeyBoard, title='Database Editor:', text=self.data)
+
+    def changeData(self, newdata):
+        if newdata and newdata != '' and newdata != self.data:
+            newdata = ':::' + newdata + ':::'
+            olddata = ':::' + self.data + ':::'
+            database = open(self.database).read()
+            for line in database.split('\n'):
+                if search(self.mp3, line) is not None:
+                    newline = line.replace(olddata, newdata)
+                    database = database.replace(line, newline)
+
+            f = open(self.database + '.new', 'w')
+            f.write(database)
+            f.close()
+            os.rename(self.database + '.new', self.database)
+            self.makeList()
+            self.makeList2()
+            self.change = True
+        return
+
+    def selectList(self):
+        self.actlist = 'list'
+        self['list'].show()
+        self['list2'].hide()
+        self['list'].selectionEnabled(1)
+        self['list2'].selectionEnabled(0)
+
+    def selectList2(self):
+        self.actlist = 'list2'
+        self['list'].hide()
+        self['list2'].show()
+        self['list'].selectionEnabled(0)
+        self['list2'].selectionEnabled(1)
+
+    def up(self):
+        self[self.actlist].up()
+
+    def down(self):
+        self[self.actlist].down()
+
+    def leftUp(self):
+        self[self.actlist].pageUp()
+
+    def rightDown(self):
+        self[self.actlist].pageDown()
+
+    def gotoEnd(self):
+        end = len(self.list) - 1
+        self['list'].moveToIndex(end)
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+
+    def exit(self):
+        if self.hideflag == False:
+            self.hideflag = True
+
+        if self.actlist == 'list':
+            if self.change == True:
+                self.close(True)
+            else:
+                self.close(False)
+        elif self.actlist == 'list2':
+            self.selectList()
+
+
+class filterList(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="{screenwidth},{screenheight}" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="{screenwidth},28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/{png}.png" zPosition="1"/>\n\t\t\t\t<widget name="list" position="10,38" size="{listwidth},{listheight}" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, list, titel, len, max):
+        print("[MP3Browser][filterlist] ")    
+        if int(len) < 20:
+            listheight = int(len) * 25
+            screenheight = listheight + 48
+            screenheight = str(screenheight)
+            listheight = str(listheight)
+        else:
+            screenheight = '523'
+            listheight = '475'
+        if int(max) > 50:
+            screenwidth = '720'
+            listwidth = '700'
+            self.listwidth = 700
+            png = 'logoFilter4'
+        elif int(max) > 35:
+            screenwidth = '520'
+            listwidth = '500'
+            self.listwidth = 500
+            png = 'logoFilter3'
+        elif int(max) > 25:
+            screenwidth = '370'
+            listwidth = '350'
+            self.listwidth = 350
+            png = 'logoFilter2'
+        else:
+            screenwidth = '270'
+            listwidth = '250'
+            self.listwidth = 250
+            png = 'logoFilter'
+        self.dict = {'screenwidth': screenwidth, 'screenheight': screenheight, 'listwidth': listwidth, 'listheight': listheight, 'png': png}
+        self.skin = applySkinVars(filterList.skin, self.dict)
+        Screen.__init__(self, session)
+        self.hideflag = True
+        self.setTitle(titel)
+        self.list = list
+        self.listentries = []
+        self['list'] = ItemList([])
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.zap, 
+           'prevBouquet': self.zap, 
+           'red': self.infoScreen, 
+           'yellow': self.infoScreen, 
+           'green': self.infoScreen, 
+           'blue': self.hideScreen, 
+           '6': self.resetFilter, 
+           '7': self.resetFilter, 
+           '8': self.resetFilter, 
+           '9': self.resetFilter, 
+           '0': self.gotoEnd, 
+           'displayHelp': self.infoScreen}, -1)
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        idx = 0
+        for x in self.list:
+            idx += 1
+
+        for i in list(range(idx)):
+            try:
+                res = [
+                 '']
+                res.append(MultiContentEntryText(pos=(0, 0), size=(self.listwidth, 25), font=20, color=16777215, backcolor_sel=16777215, color_sel=0, flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER, text=self.list[i]))
+                self.listentries.append(res)
+            except IndexError as e:
+                print("[MP3Browser][   ] Indexerror",  e)
+
+        self['list'].l.setList(self.listentries)
+
+    def ok(self):
+        index = self['list'].getSelectedIndex()
+        current = self.list[index]
+        self.close(':::' + current)
+
+    def resetFilter(self):
+        self.close(':::')
+
+    def down(self):
+        self['list'].down()
+
+    def up(self):
+        self['list'].up()
+
+    def gotoEnd(self):
+        end = len(self.list) - 1
+        self['list'].moveToIndex(end)
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+
+    def exit(self):
+        self.close(None)
+        return
+
+
+class allMP3List(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="730,523" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="730,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logo.png" zPosition="1"/>\n\t\t\t\t<widget name="list" position="10,38" size="710,475" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, list, index):
+        Screen.__init__(self, session)
+        print("[MP3Browser][allmp3List] ")        
+        self.hideflag = True
+        self.index = index
+        self.list = list
+        self.listentries = []
+        self['list'] = ItemList([])
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.zap, 
+           'prevBouquet': self.zap, 
+           'red': self.infoScreen, 
+           'yellow': self.infoScreen, 
+           'green': self.infoScreen, 
+           'blue': self.hideScreen, 
+           '0': self.gotoEnd, 
+           'displayHelp': self.infoScreen}, -1)
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        idx = 0
+        for x in self.list:
+            idx += 1
+
+        for i in list(range(idx)):
+            try:
+                res = [
+                 '']
+                res.append(MultiContentEntryText(pos=(0, 0), size=(710, 25), font=20, color=16777215, backcolor_sel=16777215, color_sel=0, flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER, text=self.list[i]))
+                self.listentries.append(res)
+            except IndexError as e:
+                print("[MP3Browser][   ] Indexerror",  e)
+
+        self['list'].l.setList(self.listentries)
+        try:
+            self['list'].moveToIndex(self.index)
+        except IndexError as e:
+            print("[MP3Browser][   ] Indexerror",  e)
+
+        totalMP3 = len(self.list)
+        if config.plugins.mp3browser.showfolder.value == 'yes':
+            totalMP3 -= 1
+        if config.plugins.mp3browser.language.value == 'de':
+            free = 'freier Speicher'
+            folder = 'Ordner'
+        else:
+            free = 'free Space'
+            folder = 'Folder'
+        if os.path.exists(config.plugins.mp3browser.mp3folder.value):
+            stat = os.statvfs(config.plugins.mp3browser.mp3folder.value)
+            freeSize = stat.f_bsize * stat.f_bfree // 1024 // 1024 // 1024
+            title = '%s MP3s (%s GB %s)' % (str(totalMP3), str(freeSize), free)
+            self.setTitle(title)
+        else:
+            title = '%s MP3s (MP3 %s offline)' % (str(totalMP3), folder)
+            self.setTitle(title)
+
+    def ok(self):
+        index = self['list'].getSelectedIndex()
+        self.close(index)
+
+    def down(self):
+        self['list'].down()
+
+    def up(self):
+        self['list'].up()
+
+    def gotoEnd(self):
+        end = len(self.list) - 1
+        self['list'].moveToIndex(end)
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+    def exit(self):
+        self.close(None)
+        return
+
+
+class mp3List(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="730,538" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="730,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logo.png" zPosition="1"/>\n\t\t\t\t<widget name="poster1" position="10,33" size="120,120" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="poster2" position="10,158" size="120,120" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="poster3" position="10,283" size="120,120" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="poster4" position="10,408" size="120,120" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="list" position="140,33" size="580,500" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, poster, titel):
+        Screen.__init__(self, session)
+        print("[MP3Browser][mp3List] ")        
+        self.poster = poster
+        self.poster1 = '/tmp/mp3browser1.jpg'
+        self.poster2 = '/tmp/mp3browser2.jpg'
+        self.poster3 = '/tmp/mp3browser3.jpg'
+        self.poster4 = '/tmp/mp3browser4.jpg'
+        self['poster1'] = Pixmap()
+        self['poster2'] = Pixmap()
+        self['poster3'] = Pixmap()
+        self['poster4'] = Pixmap()
+        self.ready = False
+        self.hideflag = True
+        self.mp3list = []
+        self.setTitle(titel)
+        self['list'] = ItemList([])
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'ChannelSelectBaseActions', 'HelpActions', 'NumberActions'], {'ok': self.ok, 
+           'cancel': self.exit, 
+           'right': self.rightDown, 
+           'left': self.leftUp, 
+           'down': self.down, 
+           'up': self.up, 
+           'nextBouquet': self.zap, 
+           'prevBouquet': self.zap, 
+           'red': self.infoScreen, 
+           'yellow': self.infoScreen, 
+           'blue': self.hideScreen, 
+           '0': self.gotoEnd, 
+           'displayHelp': self.infoScreen}, -1)
+        if config.plugins.mp3browser.metrixcolor.value == '0x00000000':
+            self.backcolor = False
+        else:
+            self.backcolor = True
+            self.back_color = int(config.plugins.mp3browser.metrixcolor.value, 16)
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        self['poster1'].hide()
+        self['poster2'].hide()
+        self['poster3'].hide() 
+        self['poster4'].hide()                           
+        try:
+            poster1 = self.poster[0]
+            self.download(poster1, self.getPoster1)
+            self['poster1'].show()
+
+            poster2 = self.poster[1]
+            self.download(poster2, self.getPoster2)
+            self['poster2'].show()
+
+            poster3 = self.poster[2]
+            self.download(poster3, self.getPoster3)
+            self['poster3'].show()
+
+            poster4 = self.poster[3]
+            self.download(poster4, self.getPoster4)
+            self['poster4'].show()
+        except IndexError as e:
+            print("[MP3Browser][onLayoutFinished][posterdisplay] Indexerror",  e)
+
+        idx = 0
+        for x in self.poster:
+            idx += 1
+
+        for i in list(range(idx)):
+            res = [
+             '']
+            try:
+                poster = sub('.*?[/]', '', self.poster[i])
+                if self.backcolor == True:
+                    res.append(MultiContentEntryText(pos=(0, 0), size=(580, 125), font=26, backcolor_sel=self.back_color, flags=RT_HALIGN_LEFT, text=''))
+                res.append(MultiContentEntryText(pos=(5, 5), size=(570, 115), font=26, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER | RT_WRAP, text=poster))
+            except IndexError as e:
+                print("[MP3Browser][onLayoutFinished   ] Indexerror",  e)
+
+            self.mp3list.append(res)
+
+        self['list'].l.setList(self.mp3list)
+        self['list'].l.setItemHeight(125)
+        self.ready = True
+
+    def ok(self):
+        if self.ready == True:
+            if fileExists(self.poster1):
+                os.remove(self.poster1)
+            if fileExists(self.poster2):
+                os.remove(self.poster2)
+            if fileExists(self.poster3):
+                os.remove(self.poster3)
+            if fileExists(self.poster4):
+                os.remove(self.poster4)
+            c = self['list'].getSelectedIndex()
+            current = self.poster[c]
+            self.close(current)
+
+    def down(self):
+        if self.ready == True:
+            try:
+                c = self['list'].getSelectedIndex()
+            except IndexError as e:
+                print("[MP3Browser][down] Indexerror",  e)            
+                return
+
+            self['list'].down()
+            if c + 1 == len(self.poster):
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[0]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+
+                    poster2 = self.poster[1]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[2]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[3]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][down]c + 1 Indexerror",  e)                
+                    self['poster4'].hide()
+
+            elif c % 4 == 3:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()            
+                try:
+                    poster1 = self.poster[(c + 1)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+
+                    poster2 = self.poster[(c + 2)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[(c + 3)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[(c + 4)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][down]c % 4 Indexerror",  e)
+
+    def up(self):
+        if self.ready == True:
+            try:
+                c = self['list'].getSelectedIndex()
+            except IndexError as e:
+                print("[MP3Browser][up Indexerror",  e)            
+                return
+
+            self['list'].up()
+            if c == 0:
+                l = len(self.poster)
+                d = l % 4
+                if d == 0:
+                    d = 4
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide() 
+                try:
+                    poster1 = self.poster[(l - d)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+
+                    poster2 = self.poster[(l - d + 1)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[(l - d + 2)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[(l - d + 3)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][up]c = 0 Indexerror",  e)
+
+            elif c % 4 == 0:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()             
+                try:
+                    poster1 = self.poster[(c - 4)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+
+                    poster2 = self.poster[(c - 3)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[(c - 2)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[(c - 1)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][up]c % 4 Indexerror",  e)
+
+    def rightDown(self):
+        if self.ready == True:
+            try:
+                c = self['list'].getSelectedIndex()
+            except IndexError as e:
+                print("[MP3Browser][rightDown] Indexerror",  e)            
+                return
+
+            self['list'].pageDown()
+            l = len(self.poster)
+            d = c % 4
+            e = l % 4
+            if e == 0:
+                e = 4
+            if c + e >= l:
+                pass
+            elif d == 0:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c + 4)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    
+                    poster2 = self.poster[(c + 5)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    
+                    poster3 = self.poster[(c + 6)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    
+                    poster4 = self.poster[(c + 7)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                                        
+                except IndexError as e:
+                    print("[MP3Browser][rightDown]d = 0 Indexerror",  e)
+
+            elif d == 1:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c + 3)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    
+                    poster2 = self.poster[(c + 4)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    
+                    poster3 = self.poster[(c + 5)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    
+                    poster4 = self.poster[(c + 6)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                    
+                except IndexError as e:
+                    print("[MP3Browser][rightDown]d = 1 Indexerror",  e)
+
+            elif d == 2:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()            
+                try:
+                    poster1 = self.poster[(c + 2)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    
+                    poster2 = self.poster[(c + 3)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[(c + 4)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[(c + 5)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][rightDown]d = 2 Indexerror",  e)
+
+            elif d == 3:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c + 1)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+
+                    poster2 = self.poster[(c + 2)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+
+                    poster3 = self.poster[(c + 3)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+
+                    poster4 = self.poster[(c + 4)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster3'].show()                    
+                except IndexError as e:
+                    print("[MP3Browser][rightDown]d = 3 Indexerror",  e)
+
+    def leftUp(self):
+        if self.ready == True:
+            try:
+                c = self['list'].getSelectedIndex()
+            except IndexError as e:
+                print("[MP3Browser][leftUp] Indexerror",  e)            
+                return
+
+            self['list'].pageUp()
+            d = c % 4
+            if c < 4:
+                pass
+            elif d == 0:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c - 4)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[(c - 3)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[(c - 2)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[(c - 1)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][leftUp]d = 0 Indexerror",  e)
+
+            elif d == 1:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c - 5)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[(c - 4)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[(c - 3)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[(c - 2)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][leftUp]d = 1 Indexerror",  e)
+
+            elif d == 2:
+
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide() 
+                try:
+                    poster1 = self.poster[(c - 6)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[(c - 5)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[(c - 4)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[(c - 3)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][leftUp]d = 2 Indexerror",  e)
+
+            elif d == 3:
+                self['poster1'].hide()
+                self['poster2'].hide()
+                self['poster3'].hide() 
+                self['poster4'].hide()
+                try:
+                    poster1 = self.poster[(c - 7)]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[(c - 6)]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[(c - 5)]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[(c - 4)]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError as e:
+                    print("[MP3Browser][leftUp]d = 3 Indexerror",  e)
+
+
+    def gotoEnd(self):
+        if self.ready == True:
+            end = len(self.poster) - 1
+            if end > 4:
+                self['list'].moveToIndex(end)
+                self.leftUp()
+                self.rightDown()
+
+    def getPoster1(self, output):
+        f = open(self.poster1, 'wb')
+        f.write(output)
+        f.close()
+        self.showPoster1(self.poster1)
+
+    def showPoster1(self, poster1):
+        currPic = loadPic(poster1, 120, 120, 3, 0, 0, 0)
+        if currPic != None:
+            self['poster1'].instance.setPixmap(currPic)
+        return
+
+    def getPoster2(self, output):
+        f = open(self.poster2, 'wb')
+        f.write(output)
+        f.close()
+        self.showPoster2(self.poster2)
+
+    def showPoster2(self, poster2):
+        currPic = loadPic(poster2, 120, 120, 3, 0, 0, 0)
+        if currPic != None:
+            self['poster2'].instance.setPixmap(currPic)
+        return
+
+    def getPoster3(self, output):
+        f = open(self.poster3, 'wb')
+        f.write(output)
+        f.close()
+        self.showPoster3(self.poster3)
+
+    def showPoster3(self, poster3):
+        currPic = loadPic(poster3, 120, 120, 3, 0, 0, 0)
+        if currPic != None:
+            self['poster3'].instance.setPixmap(currPic)
+        return
+
+    def getPoster4(self, output):
+        f = open(self.poster4, 'wb')
+        f.write(output)
+        f.close()
+        self.showPoster4(self.poster4)
+
+    def showPoster4(self, poster4):
+        currPic = loadPic(poster4, 120, 120, 3, 0, 0, 0)
+        if currPic != None:
+            self['poster4'].instance.setPixmap(currPic)
+        return
+
+    def download(self, link, name):
+        print("[download] link=%s, name =%s" % (link, name))
+        link = link.encode()            
+        getPage(link).addCallback(name).addErrback(self.downloadError)
+
+    def downloadError(self, output):
+        print("[MP3Browser][downloadError] ")
+
+    def zap(self):
+        servicelist = self.session.instantiateDialog(ChannelSelection)
+        self.session.execDialog(servicelist)
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+    def exit(self):
+        if fileExists(self.poster1):
+            os.remove(self.poster1)
+        if fileExists(self.poster2):
+            os.remove(self.poster2)
+        if fileExists(self.poster3):
+            os.remove(self.poster3)
+        if fileExists(self.poster4):
+            os.remove(self.poster4)
+        self.close(None)
+        return
+
+
+class getABC(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="190,60" backgroundColor="#000000" flags="wfNoBorder" title=" ">\n\t\t\t\t<widget name="ABC" position="0,0" size="190,60" font="{font};34" halign="center" valign="center" transparent="1" zPosition="1"/>\n\t\t\t</screen>'
+
+    def __init__(self, session, ABC, XYZ):
+        print("[MP3Browser][getABC] ")    
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(getABC.skin, self.dict)
+        Screen.__init__(self, session)
+        if XYZ == True and ABC == 'ABC':
+            self.field = 'WXYZ'
+        else:
+            self.field = ABC
+        self['ABC'] = Label(self.field)
+        self['actions'] = ActionMap(['OkCancelActions', 'ChannelSelectBaseActions', 'NumberActions'], {'cancel': self.quit, 
+           'ok': self.OK, 
+           'nextMarker': self.ABC, 
+           'prevMarker': self.WXYZ, 
+           '2': self._ABC, 
+           '3': self._DEF, 
+           '4': self._GHI, 
+           '5': self._JKL, 
+           '6': self._MNO, 
+           '7': self._PQRS, 
+           '8': self._TUV, 
+           '9': self._WXYZ})
+        self.Timer = eTimer()
+        self.Timer.callback.append(self.returnABC)
+        self.Timer.start(2500, True)
+
+    def ABC(self):
+        self.Timer.start(2000, True)
+        if self.field.startswith('A') or self.field.startswith('B') or self.field.startswith('C'):
+            self.field = 'DEF'
+        elif self.field.startswith('D') or self.field.startswith('E') or self.field.startswith('F'):
+            self.field = 'GHI'
+        elif self.field.startswith('G') or self.field.startswith('H') or self.field.startswith('I'):
+            self.field = 'JKL'
+        elif self.field.startswith('J') or self.field.startswith('K') or self.field.startswith('L'):
+            self.field = 'MNO'
+        elif self.field.startswith('M') or self.field.startswith('N') or self.field.startswith('O'):
+            self.field = 'PQRS'
+        elif self.field.startswith('P') or self.field.startswith('Q') or self.field.startswith('R') or self.field.startswith('S'):
+            self.field = 'TUV'
+        elif self.field.startswith('T') or self.field.startswith('U') or self.field.startswith('V'):
+            self.field = 'WXYZ'
+        elif self.field.startswith('W') or self.field.startswith('X') or self.field.startswith('Y') or self.field.startswith('Z'):
+            self.field = 'ABC'
+        self['ABC'].setText(self.field)
+
+    def WXYZ(self):
+        self.Timer.start(2000, True)
+        if self.field.startswith('W') or self.field.startswith('X') or self.field.startswith('Y') or self.field.startswith('Z'):
+            self.field = 'TUV'
+        elif self.field.startswith('T') or self.field.startswith('U') or self.field.startswith('V'):
+            self.field = 'PQRS'
+        elif self.field.startswith('P') or self.field.startswith('Q') or self.field.startswith('R') or self.field.startswith('S'):
+            self.field = 'MNO'
+        elif self.field.startswith('M') or self.field.startswith('N') or self.field.startswith('O'):
+            self.field = 'JKL'
+        elif self.field.startswith('J') or self.field.startswith('K') or self.field.startswith('L'):
+            self.field = 'GHI'
+        elif self.field.startswith('G') or self.field.startswith('H') or self.field.startswith('I'):
+            self.field = 'DEF'
+        elif self.field.startswith('D') or self.field.startswith('E') or self.field.startswith('F'):
+            self.field = 'ABC'
+        elif self.field.startswith('A') or self.field.startswith('B') or self.field.startswith('C'):
+            self.field = 'WXYZ'
+        self['ABC'].setText(self.field)
+
+    def _ABC(self):
+        self.Timer.start(2000, True)
+        if self.field != 'A' and self.field != 'B' and self.field != 'C':
+            self.field = 'A'
+        elif self.field == 'A':
+            self.field = 'B'
+        elif self.field == 'B':
+            self.field = 'C'
+        elif self.field == 'C':
+            self.field = 'A'
+        self['ABC'].setText(self.field)
+
+    def _DEF(self):
+        self.Timer.start(2000, True)
+        if self.field != 'D' and self.field != 'E' and self.field != 'F':
+            self.field = 'D'
+        elif self.field == 'D':
+            self.field = 'E'
+        elif self.field == 'E':
+            self.field = 'F'
+        elif self.field == 'F':
+            self.field = 'D'
+        self['ABC'].setText(self.field)
+
+    def _GHI(self):
+        self.Timer.start(2000, True)
+        if self.field != 'G' and self.field != 'H' and self.field != 'I':
+            self.field = 'G'
+        elif self.field == 'G':
+            self.field = 'H'
+        elif self.field == 'H':
+            self.field = 'I'
+        elif self.field == 'I':
+            self.field = 'G'
+        self['ABC'].setText(self.field)
+
+    def _JKL(self):
+        self.Timer.start(2000, True)
+        if self.field != 'J' and self.field != 'K' and self.field != 'L':
+            self.field = 'J'
+        elif self.field == 'J':
+            self.field = 'K'
+        elif self.field == 'K':
+            self.field = 'L'
+        elif self.field == 'L':
+            self.field = 'J'
+        self['ABC'].setText(self.field)
+
+    def _MNO(self):
+        self.Timer.start(2000, True)
+        if self.field != 'M' and self.field != 'N' and self.field != 'O':
+            self.field = 'M'
+        elif self.field == 'M':
+            self.field = 'N'
+        elif self.field == 'N':
+            self.field = 'O'
+        elif self.field == 'O':
+            self.field = 'M'
+        self['ABC'].setText(self.field)
+
+    def _PQRS(self):
+        self.Timer.start(2000, True)
+        if self.field != 'P' and self.field != 'Q' and self.field != 'R' and self.field != 'S':
+            self.field = 'P'
+        elif self.field == 'P':
+            self.field = 'Q'
+        elif self.field == 'Q':
+            self.field = 'R'
+        elif self.field == 'R':
+            self.field = 'S'
+        elif self.field == 'S':
+            self.field = 'P'
+        self['ABC'].setText(self.field)
+
+    def _TUV(self):
+        self.Timer.start(2000, True)
+        if self.field != 'T' and self.field != 'U' and self.field != 'V':
+            self.field = 'T'
+        elif self.field == 'T':
+            self.field = 'U'
+        elif self.field == 'U':
+            self.field = 'V'
+        elif self.field == 'V':
+            self.field = 'T'
+        self['ABC'].setText(self.field)
+
+    def _WXYZ(self):
+        self.Timer.start(2000, True)
+        if self.field != 'W' and self.field != 'X' and self.field != 'Y' and self.field != 'Z':
+            self.field = 'W'
+        elif self.field == 'W':
+            self.field = 'X'
+        elif self.field == 'X':
+            self.field = 'Y'
+        elif self.field == 'Y':
+            self.field = 'Z'
+        elif self.field == 'Z':
+            self.field = 'W'
+        self['ABC'].setText(self.field)
+
+    def OK(self):
+        self.Timer.start(2000, True)
+        if self.field == 'ABC':
+            self.field = 'B'
+        elif self.field == 'B':
+            self.field = 'C'
+        elif self.field == 'C':
+            self.field = 'A'
+        elif self.field == 'A':
+            self.field = 'B'
+        elif self.field == 'DEF':
+            self.field = 'E'
+        elif self.field == 'E':
+            self.field = 'F'
+        elif self.field == 'F':
+            self.field = 'D'
+        elif self.field == 'D':
+            self.field = 'E'
+        elif self.field == 'GHI':
+            self.field = 'H'
+        elif self.field == 'H':
+            self.field = 'I'
+        elif self.field == 'I':
+            self.field = 'G'
+        elif self.field == 'G':
+            self.field = 'H'
+        elif self.field == 'JKL':
+            self.field = 'K'
+        elif self.field == 'K':
+            self.field = 'L'
+        elif self.field == 'L':
+            self.field = 'J'
+        elif self.field == 'J':
+            self.field = 'K'
+        elif self.field == 'MNO':
+            self.field = 'N'
+        elif self.field == 'N':
+            self.field = 'O'
+        elif self.field == 'O':
+            self.field = 'M'
+        elif self.field == 'M':
+            self.field = 'N'
+        elif self.field == 'PQRS':
+            self.field = 'Q'
+        elif self.field == 'Q':
+            self.field = 'R'
+        elif self.field == 'R':
+            self.field = 'S'
+        elif self.field == 'S':
+            self.field = 'P'
+        elif self.field == 'P':
+            self.field = 'Q'
+        elif self.field == 'TUV':
+            self.field = 'U'
+        elif self.field == 'U':
+            self.field = 'V'
+        elif self.field == 'V':
+            self.field = 'T'
+        elif self.field == 'T':
+            self.field = 'U'
+        elif self.field == 'WXYZ':
+            self.field = 'X'
+        elif self.field == 'X':
+            self.field = 'Y'
+        elif self.field == 'Y':
+            self.field = 'Z'
+        elif self.field == 'Z':
+            self.field = 'W'
+        elif self.field == 'W':
+            self.field = 'X'
+        self['ABC'].setText(self.field)
+
+    def returnABC(self):
+        self.Timer.stop()
+        self.close(self.field)
+
+    def quit(self):
+        self.Timer.stop()
+        self.close(None)
+        return
+
+
+class switchScreen(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="300,200" flags="wfNoBorder" title=" ">\n\t\t\t<widget name="label_1" position="0,0" size="300,100" font="{font};32" halign="center" valign="center" transparent="1" zPosition="1"/>\n\t\t\t<widget name="label_2" position="0,100" size="300,100" font="{font};32" halign="center" valign="center" transparent="1" zPosition="1"/>\n\t\t\t<widget name="label_select_1" position="0,0" size="300,100" font="{font};32" backgroundColor="#D9D9D9" foregroundColor="#000000" halign="center" valign="center" transparent="1" zPosition="1"/>\n\t\t\t<widget name="label_select_2" position="0,100" size="300,100" font="{font};32" backgroundColor="#D9D9D9" foregroundColor="#000000" halign="center" valign="center" transparent="1" zPosition="1"/>\n\t\t\t<widget name="select_1" position="0,0" size="300,100" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/menu_select.png" transparent="1" alphatest="blend" zPosition="-1"/>\n\t\t\t<widget name="select_2" position="0,100" size="300,100" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/menu_select.png" transparent="1" alphatest="blend" zPosition="-1"/>\n\t\t\t</screen>'
+
+    def __init__(self, session, number, mode):
+        print("[MP3Browser][switchScreen] ")    
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(switchScreen.skin, self.dict)
+        Screen.__init__(self, session)
+        self['select_1'] = Pixmap()
+        self['select_2'] = Pixmap()
+        self['select_1'].hide()
+        self['select_2'].hide()
+        if mode == 'style':
+            self['label_1'] = Label('METRIX')
+            self['label_2'] = Label('COVERWALL')
+            self['label_select_1'] = Label('METRIX')
+            self['label_select_2'] = Label('COVERWALL')
+        elif mode == 'shuffle':
+            self['label_1'] = Label('NORMAL')
+            self['label_2'] = Label('SHUFFLE')
+            self['label_select_1'] = Label('NORMAL')
+            self['label_select_2'] = Label('SHUFFLE')
+        else:
+            self['label_1'] = Label('NORMAL')
+            self['label_2'] = Label('SCREENSAVER')
+            self['label_select_1'] = Label('NORMAL')
+            self['label_select_2'] = Label('SCREENSAVER')
+        self['label_select_1'].hide()
+        self['label_select_2'].hide()
+        self.number = number
+        if self.number == 1:
+            self['label_1'].hide()
+            self['select_1'].show()
+            self['label_select_1'].show()
+        elif self.number == 2:
+            self['label_2'].hide()
+            self['select_2'].show()
+            self['label_select_2'].show()
+        self['actions'] = ActionMap(['OkCancelActions', 'NumberActions', 'ColorActions', 'DirectionActions'], {'cancel': self.quit, 
+           'down': self.__next__, 
+           'red': self.__next__, 
+           '2': self.__next__, 
+           '5': self.__next__})
+        self.Timer = eTimer()
+        self.Timer.callback.append(self.returnNumber)
+        self.Timer.start(2500, True)
+
+    def __next__(self):
+        self.Timer.start(2000, True)
+        if self.number == 1:
+            self['label_select_1'].hide()
+            self['select_1'].hide()
+            self['label_1'].show()
+            self['label_2'].hide()
+            self['select_2'].show()
+            self['label_select_2'].show()
+            self.number = 2
+        elif self.number == 2:
+            self['label_select_2'].hide()
+            self['select_2'].hide()
+            self['label_2'].show()
+            self['label_1'].hide()
+            self['select_1'].show()
+            self['label_select_1'].show()
+            self.number = 1
+
+    def returnNumber(self):
+        self.Timer.stop()
+        self.close(self.number)
+
+    def quit(self):
+        self.Timer.stop()
+        self.close(None)
+        return
+
+
+class moveCover(Screen):
+    skin = '\n\t\t\t<screen position="0,0" size="1024,576" flags="wfNoBorder" title=" ">\n\t\t\t\t<widget name="cover" position="0,0" size="160,160" alphatest="blend" transparent="1" zPosition="1"/>\n\t\t\t</screen>'
+    skinHD = '\n\t\t\t<screen position="0,0" size="1280,720" flags="wfNoBorder" title=" ">\n\t\t\t\t<widget name="cover" position="0,0" size="200,200" alphatest="blend" transparent="1" zPosition="1"/>\n\t\t\t</screen>'
+
+    def __init__(self, session, cover):
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            self.skin = moveCover.skinHD
+            self.xd = False
+        else:
+            self.skin = moveCover.skin
+            self.xd = True
+        Screen.__init__(self, session)
+        self.__event_tracker = ServiceEventTracker(screen=self, eventmap={iPlayableService.evEOF: self.quit})
+        self.cover = cover
+        self['cover'] = Pixmap()
+        self['actions'] = ActionMap(['OkCancelActions', 'MoviePlayerActions'], {'cancel': self.quit, 
+           'leavePlayer': self.quit})
+        self.onLayoutFinish.append(self.onLayoutFinished)
+
+    def onLayoutFinished(self):
+        print("[MP3Browser][moveCover]")    
+        if self.xd == False:
+            Cover = loadPic(self.cover, 200, 200, 3, 0, 0, 0)
+            if Cover != None:
+                self['cover'].instance.setPixmap(Cover)
+        else:
+            Cover = loadPic(self.cover, 160, 160, 3, 0, 0, 0)
+            if Cover != None:
+                self['cover'].instance.setPixmap(Cover)
+        self.Timer = eTimer()
+        self.Timer.callback.append(self.move)
+        self.Timer.start(2500, True)
+        return
+
+    def move(self):
+        if self.xd == False:
+            pos_x = random.randint(0, 1080)
+            pos_y = random.randint(0, 520)
+        else:
+            pos_x = random.randint(0, 864)
+            pos_y = random.randint(0, 416)
+        self['cover'].instance.move(ePoint(pos_x, pos_y))
+        self.Timer.stop()
+        self.Timer.start(2500, True)
+
+    def quit(self):
+        self.Timer.stop()
+        self.close()
+
+
+class mp3Fav(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="520,490" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="520,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoFav.png" zPosition="1"/>\n\t\t\t\t<ePixmap position="10,5" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="2" />\n\t\t\t\t<widget name="label" position="34,5" size="250,20" font="{font};16" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="left" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="label2" position="310,5" size="200,20" font="{font};16" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="right" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="favmenu" position="10,60" size="500,420" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+    skinHD = '\n\t\t\t<screen position="center,center" size="620,590" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="620,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoFavHD.png" zPosition="1"/>\n\t\t\t\t<ePixmap position="10,5" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="2" />\n\t\t\t\t<widget name="label" position="34,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="left" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="label2" position="360,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="right" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="favmenu" position="10,70" size="600,510" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, newmp3):
+        if config.plugins.mp3browser.font.value == 'yes':
+            font = 'Sans'
+        else:
+            font = 'Regular'
+        self.dict = {'font': font}
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            self.listwidth = 600
+            self.font = 24
+            self.xd = False
+            self.skin = applySkinVars(mp3Fav.skinHD, self.dict)
+        else:
+            self.listwidth = 500
+            self.font = 22
+            self.xd = True
+            self.skin = applySkinVars(mp3Fav.skin, self.dict)
+        self.session = session
+        Screen.__init__(self, session)
+        print("[MP3Browser][mp3Fav]")        
+        self.newmp3 = newmp3
+        self.edit = False
+        self.ready = False
+        self.hideflag = True
+        self.count = 0
+        self.favmp3 = []
+        self.favlist = []
+        self.faventries = []
+        self['favmenu'] = ItemList([])
+        self['label'] = Label('= Remove Favorit')
+        self['label2'] = Label('0/1 = Move to End/First')
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'HelpActions', 'NumberActions'], {'ok': self.exit, 
+           'cancel': self.exit, 
+           'right': self.rightDown, 
+           'left': self.leftUp, 
+           'down': self.down, 
+           'up': self.up, 
+           'red': self.red, 
+           'yellow': self.infoScreen, 
+           'green': self.infoScreen, 
+           'blue': self.hideScreen, 
+           '0': self.move2end, 
+           '1': self.move2first, 
+           'displayHelp': self.infoScreen}, -1)
+        self.Timer = eTimer()
+        self.Timer.callback.append(self.makeFav)
+        self.Timer.start(500, True)
+
+    def makeFav(self):
+        self.setTitle('MP3 Browser:::Favourites')
+        self.favorites = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
+        self.count = 0
+        if fileExists(self.favorites):
+            f = open(self.favorites, 'r')
+            self.count = 0
+            for line in f:
+                self.count += 1
+                favline = line.split(':::')
+                titel = str(favline[3] + ' - ' + favline[6])
+                mp3 = favline[1]
+                res = ['']
+                res.append(MultiContentEntryText(pos=(0, 0), size=(self.listwidth, 30), font=self.font, color=16777215, backcolor_sel=16777215, color_sel=0, flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER, text=titel))
+                self.faventries.append(res)
+                self.favlist.append(titel)
+                self.favmp3.append(mp3)
+
+            f.close()
+            self['favmenu'].l.setList(self.faventries)
+            if self.xd == False:
+                self['favmenu'].l.setItemHeight(30)
+            else:
+                self['favmenu'].l.setItemHeight(28)
+            if self.newmp3 == True:
+                self.newmp3 = False
+                lastindex = len(self.favlist) - 1
+                if lastindex > 0:
+                    try:
+                        self['favmenu'].moveToIndex(lastindex)
+                    except IndexError as e:
+                        print("[MP3Browser][   ] Indexerror",  e)
+
+            self.ready = True
+
+    def red(self):
+        if len(self.favlist) > 0:
+            try:
+                c = self.getIndex(self['favmenu'])
+                name = self.favlist[c]
+            except IndexError as e:
+                name = ''
+
+            if config.plugins.mp3browser.language.value == 'de':
+                self.session.openWithCallback(self.red_return, MessageBox, '\nMP3 %s aus den Favoriten löschen?' % name, MessageBox.TYPE_YESNO)
+            else:
+                self.session.openWithCallback(self.red_return, MessageBox, '\nDelete MP3 %s from Favourites?' % name, MessageBox.TYPE_YESNO)
+
+    def red_return(self, answer):
+        if answer is True:
+            self.edit = True
+            c = self.getIndex(self['favmenu'])
+            try:
+                mp3 = self.favmp3[c]
+            except IndexError as e:
+                mp3 = 'NONE'
+
+            data = ''
+            f = open(self.favorites, 'r')
+            for line in f:
+                if mp3 not in line and line != '\n':
+                    data = data + line
+
+            f.close()
+            fnew = open(self.favorites + '.new', 'w')
+            fnew.write(data)
+            fnew.close()
+            os.rename(self.favorites + '.new', self.favorites)
+            self.favmp3 = []
+            self.favlist = []
+            self.faventries = []
+            self.makeFav()
+
+    def move2first(self):
+        try:
+            self.edit = True
+            c = self.getIndex(self['favmenu'])
+            fav = self.favmp3[c]
+            f = open(self.favorites, 'r')
+            for line in f:
+                if fav in line:
+                    favdata = line
+
+            f.close()
+            fnew = open(self.favorites + '.new', 'w')
+            fnew.write(favdata)
+            fnew.close()
+            data = ''
+            f = open(self.favorites, 'r')
+            for line in f:
+                if fav not in line and line != '\n':
+                    data = data + line
+
+            f.close()
+            fnew = open(self.favorites + '.new', 'a')
+            fnew.write(data)
+            fnew.close()
+            os.rename(self.favorites + '.new', self.favorites)
+            self.favmp3 = []
+            self.favlist = []
+            self.faventries = []
+            self.makeFav()
+        except IndexError as e:
+            print("[MP3Browser][   ] Indexerror",  e)
+
+    def move2end(self):
+        try:
+            self.edit = True
+            c = self.getIndex(self['favmenu'])
+            fav = self.favmp3[c]
+            f = open(self.favorites, 'r')
+            for line in f:
+                if fav in line:
+                    favdata = line
+
+            f.close()
+            data = ''
+            f = open(self.favorites, 'r')
+            for line in f:
+                if fav not in line and line != '\n':
+                    data = data + line
+
+            f.close()
+            fnew = open(self.favorites + '.new', 'w')
+            fnew.write(data)
+            fnew.close()
+            fnew = open(self.favorites + '.new', 'a')
+            fnew.write(favdata)
+            fnew.close()
+            os.rename(self.favorites + '.new', self.favorites)
+            self.favmp3 = []
+            self.favlist = []
+            self.faventries = []
+            self.makeFav()
+        except IndexError as e:
+            print("[MP3Browser][   ] Indexerror",  e)
+
+    def getIndex(self, list):
+        return list.getSelectedIndex()
+
+    def down(self):
+        self['favmenu'].down()
+
+    def up(self):
+        self['favmenu'].up()
+
+    def rightDown(self):
+        self['favmenu'].pageDown()
+
+    def leftUp(self):
+        self['favmenu'].pageUp()
+
+    def infoScreen(self):
+        self.session.open(infoScreenMP3Browser, None, True)
+        return
+
+    def hideScreen(self):
+        if self.hideflag == True:
+            self.hideflag = False
+            count = 40
+            while count > 0:
+                count -= 1
+
+        else:
+            self.hideflag = True
+            count = 0
+            while count < 40:
+                count += 1
+
+
+    def exit(self):
+        if self.edit == True:
+            self.close('edit')
+        else:
+            self.close(None)
+        return
+
+
+class ItemList(MenuList):
+
+    def __init__(self, items, enableWrapAround=True):
+        MenuList.__init__(self, items, enableWrapAround, eListboxPythonMultiContent)
+        print("[MP3Browser][ItemList]items", items)        
+        if config.plugins.mp3browser.font.value == 'yes':
+            self.l.setFont(26, gFont('Sans', 26))
+            self.l.setFont(24, gFont('Sans', 24))
+            self.l.setFont(22, gFont('Sans', 22))
+            self.l.setFont(20, gFont('Sans', 20))
+        else:
+            self.l.setFont(26, gFont('Regular', 26))
+            self.l.setFont(24, gFont('Regular', 24))
+            self.l.setFont(22, gFont('Regular', 22))
+            self.l.setFont(20, gFont('Regular', 20))
+
+
+class helpScreen(Screen):
+    skin = '\n\t\t\t\t<screen position="center,center" size="512,512" flags="wfNoBorder" title=" " >\n\t\t\t\t\t<ePixmap position="0,0" size="515,512" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/help.png" alphatest="on" transparent="0" zPosition="0" />\n\t\t\t\t\t<ePixmap position="120,50" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/yellow.png" alphatest="blend" zPosition="3" />\n\t\t\t\t\t<ePixmap position="120,71" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/green.png" alphatest="blend" zPosition="3" />\n\t\t\t\t\t<ePixmap position="120,92" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="3" />\n\t\t\t\t\t<ePixmap position="120,113" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/blue.png" alphatest="blend" zPosition="3" />\n\t\t\t\t\t<widget name="label" position="120,48" size="395,420" font="{font};18" transparent="1" zPosition="2" />\n\t\t\t\t</screen>'
+
+    def __init__(self, session):
+        print("[MP3Browser][helpScreen]")    
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(helpScreen.skin, self.dict)
+        Screen.__init__(self, session)
+        if config.plugins.mp3browser.language.value == 'de':
+            self.setTitle('MP3 Browser Tastenbelegung')
+            self['label'] = Label('     : YouTube Musik Video\n     : Wikipedia Suche\n     : Wechsel Plugin Ansicht\n     : Plugin aus-/einblenden\n\nInfo Taste: ChartLyrics/Discogs\nVideo Taste: Update Datenbank\nText Taste: Editiere Datenbank\nRadio Taste: Lösche MP3\\Lyrics\\Discogs\n<- -> Taste: Gehe zu Anfangsbuchstabe\nTaste 1: Liste aller MP3s\nTaste 2: Bildschirmschoner An/Aus\nTaste 3: Favoriten\nTaste 4: Suche Cover auf Google\nTaste 5: MP3 Shuffle An/Aus\nTaste 6: MP3 Ordner Auswahl\nTaste 7: MP3 Interpreten Auswahl\nTaste 8: MP3 Album Auswahl\nTaste 9: MP3 Genre Auswahl\nTaste 0: Gehe an das Ende der Liste')
+        else:
+            self.setTitle('MP3 Browser Key Assignment')
+            self['label'] = Label('     : YouTube Music Video\n     : Wikipedia Search\n     : Switch Plugin Style\n     : Toggle hide/show Plugin\n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list')
+        self['actions'] = ActionMap(['OkCancelActions'], {'ok': self.close, 
+           'cancel': self.close}, -1)
+
+
+class infoScreenMP3Browser(Screen):
+    skin = '\n\t\t\t\t<screen position="center,center" size="425,425" title=" " >\n\t\t\t\t\t<ePixmap position="0,0" size="425,425" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/info.png" zPosition="1"/>\n\t\t\t\t\t<widget name="label" position="0,72" size="425,350" font="{font};18" foregroundColor="#000000" backgroundColor="#FFFFFF" halign="center" valign="center" transparent="1" zPosition="2" />\n\t\t\t\t</screen>'
+
+    def __init__(self, session, plugin, check):
+        print("[MP3Browser][infoScreenMP3Browser]")    
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(infoScreenMP3Browser.skin, self.dict)
+        Screen.__init__(self, session)
+        self.check = check
+        if config.plugins.mp3browser.language.value == 'de':
+            self['label'] = Label('www.kashmir-plugins.de\n\nGefällt Ihnen das Plugin?\nMöchten Sie etwas spenden?\nGehen Sie dazu bitte wie folgt vor:\n\n\n\n1. Melden Sie sich bei PayPal an\n2. Klicken Sie auf: Geld senden\n3. Geld an Freunde und Familie senden\n4. Adresse: paypal@kashmir-plugins.de\n5. Betrag: 5 Euro\n6. Geld senden\nDanke!')
+        elif config.plugins.mp3browser.language.value == 'es':
+            self['label'] = Label('www.kashmir-plugins.de\n\nTe gusta el plugin?\nQuieres donar algo?\nPara ello, proceda de la siguiente manera:\n\n\n\n1. Registrese en PayPal\n2. Haga clic en: Enviar dinero\n3. Amigos y familia\n4. Correo: paypal@kashmir-plugins.de\n5. Importe: 5 Euro\n6. Envie dinero\nGracias!')
+        else:
+            self['label'] = Label('www.kashmir-plugins.de\n\nDo you like the plugin?\nDo you want to donate something?\nTo do so, please proceed as follows:\n\n\n\n1. Sign up for PayPal\n2. Click on: Send Money\n3. Friends and Family\n4. Address: paypal@kashmir-plugins.de\n5. Amount: 5 Euro\n6. Send Money\nThank you!')
+        self['actions'] = ActionMap(['OkCancelActions'], {'ok': self.close, 
+           'cancel': self.close}, -1)
+        self.version = '2.0py3'
+        self.plugin = plugin
+        self.setTitle('PayPal Info')
+        return
+
+    def download(self, link, name):
+        print("[download] link=%s, name =%s" % (link, name))
+        link = link.encode()      
+        getPage(link).addCallback(name).addErrback(self.downloadError)
+
+    def downloadError(self, output):
+        print("[MP3Browser][downloaderror] ")
+
+
+
+class mp3BrowserConfig(ConfigListScreen, Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="530,500" backgroundColor="#20000000" title="MP3 Browser Setup">\n\t\t\t\t<ePixmap position="0,0" size="530,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoConfig.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="9,37" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="config" position="9,38" size="512,125" itemHeight="25" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t\t<ePixmap position="9,164" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="save" position="150,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<widget name="cancel" position="365,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<ePixmap position="125,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/green.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="340,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="plugin" position="9,203" size="512,288" alphatest="blend" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session):
+        if config.plugins.mp3browser.font.value == 'yes':
+            font = 'Sans'
+        else:
+            font = 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(mp3BrowserConfig.skin, self.dict)
+        Screen.__init__(self, session)
+        self.sortorder = config.plugins.mp3browser.sortorder.value
+        self.mp3folder = config.plugins.mp3browser.mp3folder.value
+        self.cachefolder = config.plugins.mp3browser.cachefolder.value
+        self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+        self.lang = config.plugins.mp3browser.language.value
+        self['save'] = Label('Speichern') if self.lang == 'de' else Label('Save')
+        self['cancel'] = Label('Abbrechen') if self.lang == 'de' else Label('Cancel')
+        self['plugin'] = Pixmap()
+        self.ready = True
+        list = []
+        print("[MP3Browser][mp3BrowserConfig] ")        
+        if self.lang == 'de':
+            list.append(getConfigListEntry('Plugin Ansicht:', config.plugins.mp3browser.style))
+            self.foldername = getConfigListEntry('MP3 Ordner:', config.plugins.mp3browser.mp3folder)
+            list.append(self.foldername)
+            list.append(getConfigListEntry('Cache Ordner:', config.plugins.mp3browser.cachefolder))
+            list.append(getConfigListEntry('MP3 Play Modus:', config.plugins.mp3browser.background))
+            list.append(getConfigListEntry('Zeige TV im Hintergrund:', config.plugins.mp3browser.showtv))
+            list.append(getConfigListEntry('MP3 Sortierung:', config.plugins.mp3browser.sortorder))
+            list.append(getConfigListEntry('Shuffle MP3:', config.plugins.mp3browser.shuffle))
+            list.append(getConfigListEntry('Bildschirmschoner:', config.plugins.mp3browser.screensaver))
+            list.append(getConfigListEntry('Gehe zur letzten MP3 beim Start:', config.plugins.mp3browser.lastmp3))
+            list.append(getConfigListEntry('Lade letzte Auswahl/Filter beim Start:', config.plugins.mp3browser.lastfilter))
+            list.append(getConfigListEntry('Plugin Transparenz:', config.plugins.mp3browser.transparency))
+            list.append(getConfigListEntry('Plugin Sprache:', config.plugins.mp3browser.language))
+            list.append(getConfigListEntry('Zeige Discogs Info:', config.plugins.mp3browser.discogs))
+            list.append(getConfigListEntry('Coverwall Plugin Größe:', config.plugins.mp3browser.plugin_size))
+            list.append(getConfigListEntry('Coverwall Info & Lyrics:', config.plugins.mp3browser.showinfo))
+            list.append(getConfigListEntry('Coverwall Farbe Überschiften:', config.plugins.mp3browser.color))
+            list.append(getConfigListEntry('Metrix Liste Inhalt:', config.plugins.mp3browser.metrixlist))
+            list.append(getConfigListEntry('Metrix Liste Farbe Auswahl:', config.plugins.mp3browser.metrixcolor))
+            list.append(getConfigListEntry('Zeige Liste der MP3 Ordner:', config.plugins.mp3browser.showfolder))
+            list.append(getConfigListEntry('Plugin im Enigma Menü:', config.plugins.mp3browser.showmenu))
+            list.append(getConfigListEntry('Plugin Sans Serif Schrift:', config.plugins.mp3browser.font))
+            list.append(getConfigListEntry('Aktualisiere Datenbank beim Start:', config.plugins.mp3browser.autoupdate))
+            list.append(getConfigListEntry('Plugin während Aktualisierung ausblenden:', config.plugins.mp3browser.hideupdate))
+        else:
+            list.append(getConfigListEntry('Plugin Style:', config.plugins.mp3browser.style))
+            self.foldername = getConfigListEntry('MP3 Folder:', config.plugins.mp3browser.mp3folder)
+            list.append(self.foldername)
+            list.append(getConfigListEntry('Cache Folder:', config.plugins.mp3browser.cachefolder))
+            list.append(getConfigListEntry('MP3 Play Mode:', config.plugins.mp3browser.background))
+            list.append(getConfigListEntry('Show TV in Background:', config.plugins.mp3browser.showtv))
+            list.append(getConfigListEntry('MP3 Sort Order:', config.plugins.mp3browser.sortorder))
+            list.append(getConfigListEntry('Shuffle MP3:', config.plugins.mp3browser.shuffle))
+            list.append(getConfigListEntry('Screensaver:', config.plugins.mp3browser.screensaver))
+            list.append(getConfigListEntry('Goto last MP3 on Start:', config.plugins.mp3browser.lastmp3))
+            list.append(getConfigListEntry('Load last Filter on Start:', config.plugins.mp3browser.lastfilter))
+            list.append(getConfigListEntry('Plugin Transparency:', config.plugins.mp3browser.transparency))
+            list.append(getConfigListEntry('Plugin Language:', config.plugins.mp3browser.language))
+            list.append(getConfigListEntry('Show Discogs Info:', config.plugins.mp3browser.discogs))
+            list.append(getConfigListEntry('Coverwall Plugin Size:', config.plugins.mp3browser.plugin_size))
+            list.append(getConfigListEntry('Coverwall Info & Lyrics:', config.plugins.mp3browser.showinfo))
+            list.append(getConfigListEntry('Coverwall Headline Color:', config.plugins.mp3browser.color))
+            list.append(getConfigListEntry('Metrix List Content:', config.plugins.mp3browser.metrixlist))
+            list.append(getConfigListEntry('Metrix List Selection Color:', config.plugins.mp3browser.metrixcolor))
+            list.append(getConfigListEntry('Show List of MP3 Folder:', config.plugins.mp3browser.showfolder))
+            list.append(getConfigListEntry('Plugin in Enigma Menu:', config.plugins.mp3browser.showmenu))
+            list.append(getConfigListEntry('Plugin Sans Serif Font:', config.plugins.mp3browser.font))
+            list.append(getConfigListEntry('Update Database at Start:', config.plugins.mp3browser.autoupdate))
+            list.append(getConfigListEntry('Hide Plugin during Update:', config.plugins.mp3browser.hideupdate))
+        list.append(getConfigListEntry('Full HD Skin Support:', config.plugins.mp3browser.fhd))
+        list.append(getConfigListEntry('Plugin Auto Update Check:', config.plugins.mp3browser.autocheck))
+        list.append(getConfigListEntry('Cleanup Cache Folder:', config.plugins.mp3browser.cleanup))
+        list.append(getConfigListEntry('Backup Database:', config.plugins.mp3browser.backup))
+        list.append(getConfigListEntry('Restore Database:', config.plugins.mp3browser.restore))
+        list.append(getConfigListEntry('Reset Database:', config.plugins.mp3browser.reset))
+        list.append(getConfigListEntry('PayPal Info:', config.plugins.mp3browser.paypal))
+        ConfigListScreen.__init__(self, list, on_change=self.UpdateComponents)
+        self['actions'] = ActionMap(['SetupActions', 'ColorActions'], {'ok': self.save, 
+           'cancel': self.cancel, 
+           'red': self.cancel, 
+           'green': self.save}, -1)
+        self.onLayoutFinish.append(self.UpdateComponents)
+
+    def UpdateComponents(self):
+        png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/' + str(config.plugins.mp3browser.style.value) + '.png'
+        if fileExists(png):
+            PNG = loadPic(png, 512, 288, 3, 0, 0, 0)
+            if PNG != None:
+                self['plugin'].instance.setPixmap(PNG)
+        current = self['config'].getCurrent()
+        if current == self.foldername:
+            self.session.openWithCallback(self.folderSelected, FolderSelection, self.mp3folder)
+        elif current == getConfigListEntry('Goto last MP3 on Start:', config.plugins.mp3browser.lastmp3) or current == getConfigListEntry('Gehe zur letzten MP3 beim Start:', config.plugins.mp3browser.lastmp3):
+            if config.plugins.mp3browser.showfolder.value == 'no' and config.plugins.mp3browser.lastmp3.value == 'folder':
+                config.plugins.mp3browser.lastmp3.value = 'yes'
+        elif current == getConfigListEntry('PayPal Info:', config.plugins.mp3browser.paypal):
+            import time
+            from Screens.InputBox import PinInput
+            self.pin = int(time.strftime('%d%m'))
+            self.session.openWithCallback(self.returnPin, PinInput, pinList=[self.pin], triesEntry=config.ParentalControl.retries.servicepin)
+        elif current == getConfigListEntry('Backup Database:', config.plugins.mp3browser.backup):
+            if os.path.exists(self.cachefolder):
+                if fileExists(self.database):
+                    data = open(self.database).read()
+                    try:
+                        os.makedirs(self.cachefolder + '/backup')
+                    except OSError as e:
+                        print("[MP3Browser][UpdateComponents] OSEerror",  e)
+
+                    f = open(self.cachefolder + '/backup/database', 'w')
+                    f.write(data)
+                    f.close()
+                    if self.lang == 'de':
+                        self.session.open(MessageBox, '\nDatenbank gesichert nach %s' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_INFO, close_on_any_key=True)
+                    else:
+                        self.session.open(MessageBox, '\nDatabase backuped to %s' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_INFO, close_on_any_key=True)
+                elif self.lang == 'de':
+                    self.session.open(MessageBox, '\nDatenbank %s nicht gefunden:\nMP3 Browser Datenbank Backup abgebrochen.' % str(self.database), MessageBox.TYPE_ERROR)
+                else:
+                    self.session.open(MessageBox, '\nDatabase %s not found:\nMP3 Browser Database Backup canceled.' % str(self.database), MessageBox.TYPE_ERROR)
+            elif self.lang == 'de':
+                self.session.open(MessageBox, '\nCache Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Backup abgebrochen.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nCache Folder %s not reachable:\nMP3 Browser Database Backup canceled.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+        elif current == getConfigListEntry('Restore Database:', config.plugins.mp3browser.restore):
+            if os.path.exists(self.cachefolder):
+                if fileExists(self.cachefolder + '/backup/database'):
+                    data = open(self.cachefolder + '/backup/database').read()
+                    f = open(self.database, 'w')
+                    f.write(data)
+                    f.close()
+                    if self.lang == 'de':
+                        self.session.open(MessageBox, '\nDatenbank zurückgespielt von %s' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_INFO, close_on_any_key=True)
+                    else:
+                        self.session.open(MessageBox, '\nDatabase restored from %s' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_INFO, close_on_any_key=True)
+                elif self.lang == 'de':
+                    self.session.open(MessageBox, '\nDatenbank Backup %s nicht gefunden:\nMP3 Browser Datenbank Wiederherstellung abgebrochen.' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_ERROR)
+                else:
+                    self.session.open(MessageBox, '\nDatabase Backup %s not found:\nMP3 Browser Database Restore canceled.' % str(self.cachefolder + '/backup/database'), MessageBox.TYPE_ERROR)
+            elif self.lang == 'de':
+                self.session.open(MessageBox, '\nCache Ordner %s ist nicht erreichbar:\nMP3 Browser Datenbank Wiederherstellung abgebrochen.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nCache Folder %s not reachable:\nMP3 Browser Database Restore canceled.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+        elif current == getConfigListEntry('Cleanup Cache Folder:', config.plugins.mp3browser.cleanup):
+            if os.path.exists(self.cachefolder):
+                if fileExists(self.database):
+                    data = open(self.database).read()
+                    data = data + ':::default_folder.png:::default.png:::database:::'
+                    folder = self.cachefolder
+                    count = 0
+                    for root, dirs, files in os.walk(folder, topdown=False, onerror=None):
+                        for name in files:
+                            shortname = sub('\\.bmp|\\.gif|\\.jpg|\\.jpeg|\\.png|\\.lyrics|\\.discogs', '', name)
+                            shortname = sub('\\(|\\)|\\[|\\]', '.', shortname)
+                            if search(shortname, data) is None:
+                                filename = os.path.join(root, name)
+                                if fileExists(filename):
+                                    os.remove(filename)
+                                    count += 1
+
+                    del data
+                    if count == 0:
+                        if self.lang == 'de':
+                            self.session.open(MessageBox, '\nKeine verwaisten Cover, Lyrics oder Discogs Infos gefunden:\nIhr Cache Ordner ist sauber.', MessageBox.TYPE_INFO, close_on_any_key=True)
+                        else:
+                            self.session.open(MessageBox, '\nNo orphaned Covers, Lyrics or Discogs Infos found:\nYour Cache Folder is clean.', MessageBox.TYPE_INFO, close_on_any_key=True)
+                    elif self.lang == 'de':
+                        self.session.open(MessageBox, '\nCache Ordner Bereinigung beendet:\n%s verwaiste Cover, Lyrics oder Discogs Infos entfernt.' % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
+                    else:
+                        self.session.open(MessageBox, '\nCleanup Cache Folder finished:\n%s orphaned Covers, Lyrics or Discogs Infos removed.' % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
+                elif self.lang == 'de':
+                    self.session.open(MessageBox, '\nDatenbank %s nicht gefunden:\nCache Ordner Bereinigung abgebrochen.' % str(self.database), MessageBox.TYPE_ERROR)
+                else:
+                    self.session.open(MessageBox, '\nDatabase %s not found:\nCleanup Cache Folder canceled.' % str(self.database), MessageBox.TYPE_ERROR)
+            elif self.lang == 'de':
+                self.session.open(MessageBox, '\nCache Ordner %s ist nicht erreichbar:\nCache Ordner Bereinigung abgebrochen.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nCache Folder %s not reachable:\nCleanup Cache Folder canceled.' % str(self.cachefolder), MessageBox.TYPE_ERROR)
+        return
+
+    def folderSelected(self, folder):
+        if folder is not None:
+            self.mp3folder = folder
+            config.plugins.mp3browser.mp3folder.value = folder
+            config.plugins.mp3browser.mp3folder.save()
+        return
+
+    def returnPin(self, pin):
+        if pin:
+            config.plugins.mp3browser.paypal.value = 'no'
+            config.plugins.mp3browser.paypal.save()
+            configfile.save()
+        else:
+            config.plugins.mp3browser.paypal.value = 'yes'
+            config.plugins.mp3browser.paypal.save()
+
+    def save(self):
+        if self.ready == True:
+            self.ready = False
+            if config.plugins.mp3browser.sortorder.value != self.sortorder:
+                if fileExists(self.database):
+                    f = open(self.database, 'r')
+                    lines = f.readlines()
+                    f.close()
+                    try:
+                        if config.plugins.mp3browser.sortorder.value == 'artist':
+                            lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+                        elif config.plugins.mp3browser.sortorder.value == 'artist_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[3].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'album':
+                            lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                            lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+                        elif config.plugins.mp3browser.sortorder.value == 'album_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[5].zfill(2))
+                            lines.sort(key=lambda line: line.split(':::')[4].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'track':
+                            lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+                        elif config.plugins.mp3browser.sortorder.value == 'track_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[6].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'genre':
+                            lines.sort(key=lambda line: line.split(':::')[8])
+                        elif config.plugins.mp3browser.sortorder.value == 'genre_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[8], reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'year':
+                            lines.sort(key=lambda line: line.split(':::')[7])
+                        elif config.plugins.mp3browser.sortorder.value == 'year_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[7], reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'date':
+                            lines.sort(key=lambda line: line.split(':::')[2])
+                        elif config.plugins.mp3browser.sortorder.value == 'date_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[2], reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'folder':
+                            lines.sort(key=lambda line: line.split(':::')[1])
+                        elif config.plugins.mp3browser.sortorder.value == 'folder_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[1], reverse=True)
+                        elif config.plugins.mp3browser.sortorder.value == 'runtime':
+                            lines.sort(key=lambda line: line.split(':::')[9])
+                        elif config.plugins.mp3browser.sortorder.value == 'runtime_reverse':
+                            lines.sort(key=lambda line: line.split(':::')[9], reverse=True)
+                    except IndexError as e:
+                        print("[MP3Browser][   ] Indexerror",  e)
+
+                    fsorted = open(self.database + '.sorted', 'w')
+                    fsorted.writelines(lines)
+                    fsorted.close()
+                    os.rename(self.database + '.sorted', self.database)
+            if config.plugins.mp3browser.reset.value == 'yes':
+                open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
+                config.plugins.mp3browser.reset.value = 'no'
+                config.plugins.mp3browser.reset.save()
+            if config.plugins.mp3browser.cachefolder.value != self.cachefolder:
+                self.container = eConsoleAppContainer()
+                self.container.appClosed.append(self.finished)
+                newcache = sub('/cache', '', config.plugins.mp3browser.cachefolder.value)
+                self.container.execute("mkdir -p '%s' && cp -r '%s' '%s' && rm -rf '%s'" % (config.plugins.mp3browser.cachefolder.value, self.cachefolder, newcache, self.cachefolder))
+                self.cachefolder = config.plugins.mp3browser.cachefolder.value
+                config.plugins.mp3browser.cachefolder.save()
+            else:
+                for x in self['config'].list:
+                    x[1].save()
+                    configfile.save()
+
+                self.exit()
+
+    def finished(self, retval):
+        del self.container.appClosed[:]
+        del self.container
+        for x in self['config'].list:
+            x[1].save()
+            configfile.save()
+
+        self.exit()
+
+    def cancel(self):
+        for x in self['config'].list:
+            x[1].cancel()
+
+        self.exit()
+
+    def exit(self):
+        if config.plugins.mp3browser.style.value == 'metrix':
+            self.session.openWithCallback(self.close, mp3BrowserMetrix, 0, ':::')
+        else:
+            self.session.openWithCallback(self.close, mp3Browser, 0, ':::')
+
+
+class FolderSelection(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="530,500" backgroundColor="#20000000" title="MP3 Browser Setup">\n\t\t\t\t<ePixmap position="0,0" size="530,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoConfig.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="9,37" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="folderlist" position="9,38" size="512,125" itemHeight="25" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t\t<ePixmap position="9,164" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="save" position="150,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<widget name="cancel" position="365,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<ePixmap position="125,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/green.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="340,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="plugin" position="9,203" size="512,288" alphatest="blend" zPosition="1" />\n\t\t\t</screen>'
+
+    def __init__(self, session, folder):
+        print("[MP3Browser][FolderSelection] ")    
+        if config.plugins.mp3browser.font.value == 'yes':
+            font = 'Sans'
+        else:
+            font = 'Regular'
+        self.dict = {'font': font}
+        self.skin = applySkinVars(FolderSelection.skin, self.dict)
+        Screen.__init__(self, session)
+        lang = config.plugins.mp3browser.language.value
+        if lang == 'de':
+            self['save'] = Label('Speichern')
+            self['cancel'] = Label('Abbrechen')
+        else:
+            self['save'] = Label('Save')
+            self['cancel'] = Label('Cancel')
+        self['plugin'] = Pixmap()
+        noFolder = ['/bin', '/boot', '/dev', '/etc', '/lib', '/proc', '/sbin', '/sys']
+        self['folderlist'] = FileList(folder, showDirectories=True, showFiles=False, inhibitDirs=noFolder)
+        self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions'], {'ok': self.ok, 
+           'cancel': self.cancel, 
+           'right': self.right, 
+           'left': self.left, 
+           'down': self.down, 
+           'up': self.up, 
+           'red': self.cancel, 
+           'green': self.green}, -1)
+        self.onLayoutFinish.append(self.pluginPic)
+
+    def pluginPic(self):
+        png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/' + str(config.plugins.mp3browser.style.value) + '.png'
+        if fileExists(png):
+            PNG = loadPic(png, 512, 288, 3, 0, 0, 0)
+            if PNG != None:
+                self['plugin'].instance.setPixmap(PNG)
+        return
+
+    def ok(self):
+        if self['folderlist'].canDescent():
+            self['folderlist'].descent()
+
+    def right(self):
+        self['folderlist'].pageDown()
+
+    def left(self):
+        self['folderlist'].pageUp()
+
+    def down(self):
+        self['folderlist'].down()
+
+    def up(self):
+        self['folderlist'].up()
+
+    def green(self):
+        self.close(self['folderlist'].getSelection()[0])
+
+    def cancel(self):
+        self.close(None)
+        return
+
+
+def main(session, **kwargs):
+    if config.plugins.mp3browser.style.value == 'metrix':
+        session.open(mp3BrowserMetrix, 0, ':::')
+    else:
+        session.open(mp3Browser, 0, ':::')
+
+
+def menu(menuid, **kwargs):
+    if menuid == 'mainmenu':
+        return [('MP3 Browser', main, 'mp3browser', 43)]
+    return []
+
+
+def Plugins(**kwargs):
+    lang = language.getLanguage()[:2]
+    if lang == 'de':
+        plugindesc = 'MP3 Verwaltung'
+    else:
+        plugindesc = 'Manage your MP3s'
+    if config.plugins.mp3browser.showmenu.value == 'no':
+        return [
+         PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_PLUGINMENU], icon='plugin.png', fnc=main),
+         PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_EXTENSIONSMENU], fnc=main)]
+    else:
+        return [PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_MENU], fnc=menu),
+         PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_PLUGINMENU], icon='plugin.png', fnc=main),
+         PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_EXTENSIONSMENU], fnc=main)]
+# okay decompiling /home/twol/Videos/plugin.pyo
