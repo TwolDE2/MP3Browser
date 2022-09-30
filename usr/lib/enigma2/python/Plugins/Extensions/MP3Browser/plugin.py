@@ -751,7 +751,7 @@ class mp3BrowserMetrix(Screen):
             for name in files:
                 if name.lower().endswith('.mp3'):
                 	if search(r'[\uD800-\uDFFF]', name) is not None:
-                		name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode(utf-8")	
+                		name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode("utf-8")	
                     filename = os.path.join(root, name)
                     allfiles = allfiles + filename + ':::'
                     mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', name)
