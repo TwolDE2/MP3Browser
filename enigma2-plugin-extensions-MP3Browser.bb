@@ -10,7 +10,8 @@ PKGV = "1.0+git${GITPKGV}"
 
 SRCREV = "${AUTOREV}"
 
-SRC_URI = "git://github.com/Huevos/LamedbMerger.git;protocol=https;branch=master"
+SRC_URI = "git://github.com/TwolDE2/MP3Browser.git;protocol=https;branch=main"
+
 
 DEPENDS = "python3-mutagen"
 
