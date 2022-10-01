@@ -1,5 +1,5 @@
 # MP3Browser 
-this is updated fo python 3 use and has been extracted from the original python 2 plugin
+this is updated for python 3 use and has been extracted from the original python 2 plugin
 
 Description: MP3 Browser Plugin
 
