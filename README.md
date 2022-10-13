@@ -1,5 +1,5 @@
 # MP3Browser 
-this is updated fo python 3 use and has been extracted from the original python 2 plugin
+this is updated for python 3 use and has been extracted from the original python 2 plugin
 
 Description: MP3 Browser Plugin
 
@@ -9,16 +9,6 @@ Homepage: http://www.kashmir-plugins.de
 Depends: python3-mutagen
 Source: http://www.kashmir-plugins.de
 
-yellow Youtube Videos never used, would use YouTube plugin
-green Wikipedia Wikipedia is no more available on new image, just disable this key
-red Switch plugin Style crashes now
-blue Show / Hide plugin never used
-
-
-Info Lyrics / Discorgs Shows / searches lyrics and stores them in the cache
-Video Update Database
-Text Edit Database (correct meta data info)
-Radio Delete Lyrics never used
 <--> Go to first letter in list
 
 
