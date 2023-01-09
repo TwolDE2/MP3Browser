@@ -20,12 +20,12 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import parse_qs
 
-from requests import get
+#from requests import get
+import requests
 from requests.exceptions import HTTPError
 from twisted.internet.reactor import callInThread
 
 from twisted.web import client, error
-from twisted.web.client import getPage, downloadPage
 
 from enigma import addFont, eConsoleAppContainer, eListboxPythonMultiContent, ePoint, eServiceReference, eSize, eTimer, getDesktop, gFont, gMainDC, iPlayableService, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, RT_HALIGN_CENTER, RT_VALIGN_CENTER, RT_WRAP
 from Components.ActionMap import ActionMap
@@ -50,6 +50,7 @@ from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.Standby import TryQuitMainloop
 from Screens.VirtualKeyBoard import VirtualKeyBoard
+from skin import applySkinFactor, fonts, parameters
 from Tools.Directories import fileExists
 
 config.plugins.mp3browser = ConfigSubsection()
@@ -187,15 +188,19 @@ if config.plugins.mp3browser.font.value == 'yes':
     except Exception as ex:
         addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False, 0)
 
-try:
-    addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
-except Exception as ex:
-    addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False, 0)
+    try:
+        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
+    except Exception as ex:
+        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False, 0)
 
 def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args, **kwargs):
-    print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs) 
+    print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs)
+    
+#   authHeaders = [('User-Agent', 'Twisted Client')] 
+    authHeaders = {'User-Agent', 'Twisted Client'}
+    myheaders = {'User-Agent': 'Twisted Client Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',}    
     try:
-        response = get(url)
+        response = requests.get(url, headers=myheaders)
         response.raise_for_status()
         if file:
        
@@ -208,23 +213,21 @@ def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args,
             success(response.content, file)
     except HTTPError as httperror:
         print('[MP3Browser][threadGetPage] Http error: ', httperror)
-        fail(error)  # E0602 undefined name 'error'
+        fail(httperror)  # E0602 undefined name 'error'
     except Exception as error:
         print('[MP3Browser][threadGetPage] error: ', error)
         if fail is not None:
             fail(error)
   
 def skinScale(skin):
-    import re
     def repl(m):
-        from enigma import getDesktop
         factor = getDesktop(0).size().height()/720
         delimiter = ";" if m.group(1) == "font=" else ","
         spl = []
         for x in m.group(2).split(delimiter):
             spl.append(str(int(int(x)*factor)) if x.isdigit() else x)
         return m.group(1) + '"' + delimiter.join(spl) + '"'
-    return re.sub('(position=|size=|font=)\"([^"]+)\"', repl, skin)  
+    return sub('(position=|size=|font=)\"([^"]+)\"', repl, skin)  
 
 def applySkinVars(skin, dict):
     for key in list(dict.keys()):
@@ -410,7 +413,7 @@ class mp3BrowserMetrix(Screen):
            'nextMarker': self.gotoABC, 
            'prevMarker': self.gotoXYZ, 
            'red': self.switchStyle, 
-           'yellow': self.showMP3, 
+           'yellow': self.config, 
            'green': self.showMP3, 
            'blue': self.hideScreen, 
            'contextMenu': self.config, 
@@ -480,7 +483,7 @@ class mp3BrowserMetrix(Screen):
         self['yellow'].instance.setPixmapFromFile(key_yellow)
         self['red'].instance.setPixmapFromFile(key_red)
         self['green'].instance.setPixmapFromFile(key_green)
-        self['yellow'].hide()
+        self['yellow'].show()
         self['red'].hide()
         self['green'].hide()
         if config.plugins.mp3browser.showtv.value == 'hide':
@@ -563,13 +566,14 @@ class mp3BrowserMetrix(Screen):
     def database_return(self, answer):
         if answer is True:
             self.ready = False
-            try:
-                mp3 = self.mp3list[self.index]
-                f = open(self.lastfile, 'w')
-                f.write(mp3)
-                f.close()
-            except IndexError as e:
-                print("[MP3Browser][database_return] Indexerror",  e)
+            if self.mp3list:
+                try:
+                    mp3 = self.mp3list[self.index]
+                    f = open(self.lastfile, 'w')
+                    f.write(mp3)
+                    f.close()
+                except IndexError as e:
+                    print("[MP3Browser][database_return] Indexerror",  e)
 
             if fileExists(self.database):
                 self.runTimer = eTimer()
@@ -703,7 +707,7 @@ class mp3BrowserMetrix(Screen):
                             print("[MP3Browser][Database_run]B artist, posterurl", artist, "   ", posterurl)                                
                             self.posterlist.append(posterurl)
 
-        print("[MP3Browser][Database_run]1 self.posterlist", self.posterlist)  
+#       print("[MP3Browser][Database_run]1 self.posterlist", self.posterlist)  
         for line in data.split('\n'):
             mp3line = line.split(':::')
             mp3folder = ""
@@ -889,7 +893,7 @@ class mp3BrowserMetrix(Screen):
                 f.write(poster[0].data)
                 f.close()
                 self['poster'].instance.setPixmapFromFile(posterurl)
-                print("[MP3Browser][makePoster]1L poster, posterurl",  poster, "   ", posterurl)                
+                print("[MP3Browser][makePoster]1L poster",  poster)                
             else:    
                 poster = defaultfolder_png if "default_folder" in posterurl else default_png
                 self['poster'].instance.setPixmapFromFile(posterurl)                                
@@ -1052,7 +1056,7 @@ class mp3BrowserMetrix(Screen):
                 res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<List of MP3 Folder>'))
             mp3s.append(res)
         self['list'].l.setList(mp3s)
-        self['list'].l.setFont(26, gFont('Metrix', 26))
+        self['list'].l.setFont(applySkinFactor(26), gFont('Metrix', applySkinFactor(26)))
         self['list'].l.setItemHeight(35)
         self['list'].moveToIndex(self.index)
 
@@ -1671,7 +1675,8 @@ class mp3BrowserMetrix(Screen):
                     artist = artist.replace('the ', '') + '%2C%20the'
                 artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
                 url = 'http://api.discogs.com/artist/' + artist
-                callInThread(threadGetPage, url=url, success=self.self.makeDiscogs, fail=self.downloadDiscogsError)
+                url = url.encode()
+                callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)
             self.ready = True
 
     def makeDiscogs(self, output):
@@ -3456,6 +3461,8 @@ class mp3Browser(Screen):
                 if artist.startswith('the '):
                     artist = artist.replace('the ', '') + '%2C%20the'
                 artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
+                url = 'http://api.discogs.com/artist/' + artist
+                url = url.encode()
                 callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)                
 
     def makeDiscogs(self, output):
@@ -4777,6 +4784,15 @@ class mp3List(Screen):
             c = self['list'].getSelectedIndex()
             current = self.poster[c]
             self.close(current)
+            
+
+    def gotoEnd(self):
+        if self.ready == True:
+            end = len(self.poster) - 1
+            if end > 4:
+                self['list'].moveToIndex(end)
+                self.leftUp()
+                self.rightDown()            
 
     def down(self):
         if self.ready == True:
@@ -4902,7 +4918,7 @@ class mp3List(Screen):
             try:
                 c = self['list'].getSelectedIndex()
             except IndexError as e:
-                print("[MP3Browser][rightDown] Indexerror",  e)            
+                print("[MP3Browser][rightDown] Indexerror C= ",  c, "   ", e)            
                 return
 
             self['list'].pageDown()
@@ -4913,209 +4929,67 @@ class mp3List(Screen):
                 e = 4
             if c + e >= l:
                 pass
-            elif d == 0:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c + 4)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    
-                    poster2 = self.poster[(c + 5)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    
-                    poster3 = self.poster[(c + 6)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    
-                    poster4 = self.poster[(c + 7)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                                        
-                except IndexError as e:
-                    print("[MP3Browser][rightDown]d = 0 Indexerror",  e)
 
-            elif d == 1:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c + 3)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    
-                    poster2 = self.poster[(c + 4)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    
-                    poster3 = self.poster[(c + 5)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    
-                    poster4 = self.poster[(c + 6)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                    
-                except IndexError as e:
-                    print("[MP3Browser][rightDown]d = 1 Indexerror",  e)
-
-            elif d == 2:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()            
-                try:
-                    poster1 = self.poster[(c + 2)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    
-                    poster2 = self.poster[(c + 3)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-
-                    poster3 = self.poster[(c + 4)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-
-                    poster4 = self.poster[(c + 5)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                except IndexError as e:
-                    print("[MP3Browser][rightDown]d = 2 Indexerror",  e)
-
-            elif d == 3:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c + 1)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-
-                    poster2 = self.poster[(c + 2)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-
-                    poster3 = self.poster[(c + 3)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-
-                    poster4 = self.poster[(c + 4)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster3'].show()                    
-                except IndexError as e:
-                    print("[MP3Browser][rightDown]d = 3 Indexerror",  e)
+            self['poster1'].hide()
+            self['poster2'].hide()
+            self['poster3'].hide() 
+            self['poster4'].hide()
+            try:
+                poster1 = self.poster[(c + (4 - d))]
+                self.download(poster1, self.getPoster1)
+                self['poster1'].show()
+                poster2 = self.poster[(c + (5 - d))]
+                self.download(poster2, self.getPoster2)
+                self['poster2'].show()
+                poster3 = self.poster[(c + (6 - d))]
+                self.download(poster3, self.getPoster3)
+                self['poster3'].show()
+                poster4 = self.poster[(c + (7 - d))]
+                self.download(poster4, self.getPoster4)
+                self['poster4'].show()
+            except IndexError as e:
+                    print("[MP3Browser][rightDown]Indexerror d= ", d,  "   ", e)
 
     def leftUp(self):
         if self.ready == True:
             try:
                 c = self['list'].getSelectedIndex()
             except IndexError as e:
-                print("[MP3Browser][leftUp] Indexerror",  e)            
+                print("[MP3Browser][leftUp] Indexerrorc = ", c, "   ",  e)            
                 return
 
             self['list'].pageUp()
             d = c % 4
             if c < 4:
                 pass
-            elif d == 0:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c - 4)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    poster2 = self.poster[(c - 3)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    poster3 = self.poster[(c - 2)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    poster4 = self.poster[(c - 1)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                except IndexError as e:
-                    print("[MP3Browser][leftUp]d = 0 Indexerror",  e)
 
-            elif d == 1:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c - 5)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    poster2 = self.poster[(c - 4)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    poster3 = self.poster[(c - 3)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    poster4 = self.poster[(c - 2)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                except IndexError as e:
-                    print("[MP3Browser][leftUp]d = 1 Indexerror",  e)
+            self['poster1'].hide()
+            self['poster2'].hide()
+            self['poster3'].hide() 
+            self['poster4'].hide()
+            try:
+                poster1 = self.poster[(c - (4 + d))]
+                self.download(poster1, self.getPoster1)
+                self['poster1'].show()
+                poster2 = self.poster[(c - (3 + d))]
+                self.download(poster2, self.getPoster2)
+                self['poster2'].show()
+                poster3 = self.poster[(c - (2 + d))]
+                self.download(poster3, self.getPoster3)
+                self['poster3'].show()
+                poster4 = self.poster[(c - (1 + d))]
+                self.download(poster4, self.getPoster4)
+                self['poster4'].show()
+            except IndexError as e:
+                print("[MP3Browser][leftUp] Indexerror d=",  d, "   ", e)
 
-            elif d == 2:
+    def download(self, link, name):
+        print("[download] link=%s, name =%s" % (link, name))
+        callInThread(threadGetPage, url=link, success=name, fail=self.downloadError)
 
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide() 
-                try:
-                    poster1 = self.poster[(c - 6)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    poster2 = self.poster[(c - 5)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    poster3 = self.poster[(c - 4)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    poster4 = self.poster[(c - 3)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                except IndexError as e:
-                    print("[MP3Browser][leftUp]d = 2 Indexerror",  e)
+    def downloadError(self, output):
+        print("[MP3Browser][downloadError] ")
 
-            elif d == 3:
-                self['poster1'].hide()
-                self['poster2'].hide()
-                self['poster3'].hide() 
-                self['poster4'].hide()
-                try:
-                    poster1 = self.poster[(c - 7)]
-                    self.download(poster1, self.getPoster1)
-                    self['poster1'].show()
-                    poster2 = self.poster[(c - 6)]
-                    self.download(poster2, self.getPoster2)
-                    self['poster2'].show()
-                    poster3 = self.poster[(c - 5)]
-                    self.download(poster3, self.getPoster3)
-                    self['poster3'].show()
-                    poster4 = self.poster[(c - 4)]
-                    self.download(poster4, self.getPoster4)
-                    self['poster4'].show()
-                except IndexError as e:
-                    print("[MP3Browser][leftUp]d = 3 Indexerror",  e)
-
-
-    def gotoEnd(self):
-        if self.ready == True:
-            end = len(self.poster) - 1
-            if end > 4:
-                self['list'].moveToIndex(end)
-                self.leftUp()
-                self.rightDown()
 
     def getPoster1(self, output):
         f = open(self.poster1, 'wb')
@@ -5164,13 +5038,6 @@ class mp3List(Screen):
             self["poster4"].instance.setPixmapFromFileFromFile(poster4)
             self['poster4'].show()       
         return
-
-    def download(self, link, name):
-        print("[download] link=%s, name =%s" % (link, name))
-        callInThread(threadGetPage, url=link, success=name, fail=self.downloadError)
-
-    def downloadError(self, output):
-        print("[MP3Browser][downloadError] ")
 
     def zap(self):
         servicelist = self.session.instantiateDialog(ChannelSelection)
@@ -5812,15 +5679,15 @@ class ItemList(MenuList):
         MenuList.__init__(self, items, enableWrapAround, eListboxPythonMultiContent)
         print("[MP3Browser][ItemList]items", items)        
         if config.plugins.mp3browser.font.value == 'yes':
-            self.l.setFont(26, gFont('Sans', 26))
-            self.l.setFont(24, gFont('Sans', 24))
-            self.l.setFont(22, gFont('Sans', 22))
-            self.l.setFont(20, gFont('Sans', 20))
+            self.l.setFont(applySkinFactor(26), gFont('Sans', applySkinFactor(26)))
+            self.l.setFont(applySkinFactor(24), gFont('Sans', applySkinFactor(24)))
+            self.l.setFont(applySkinFactor(22), gFont('Sans', applySkinFactor(22)))
+            self.l.setFont(applySkinFactor(20), gFont('Sans', applySkinFactor(20)))
         else:
-            self.l.setFont(26, gFont('Regular', 26))
-            self.l.setFont(24, gFont('Regular', 24))
-            self.l.setFont(22, gFont('Regular', 22))
-            self.l.setFont(20, gFont('Regular', 20))
+            self.l.setFont(applySkinFactor(26), gFont('Regular', applySkinFactor(26)))
+            self.l.setFont(applySkinFactor(24), gFont('Regular', applySkinFactor(24)))
+            self.l.setFont(applySkinFactor(22), gFont('Regular', applySkinFactor(22)))
+            self.l.setFont(applySkinFactor(20), gFont('Regular', applySkinFactor(20)))
 
 
 class helpScreen(Screen):
@@ -5869,16 +5736,15 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
     skin = '\n\t\t\t<screen position="center,center" size="530,500" backgroundColor="#20000000" title="MP3 Browser Setup">\n\t\t\t\t<ePixmap position="0,0" size="530,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoConfig.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="9,37" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="config" position="9,38" size="512,125" itemHeight="25" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t\t<ePixmap position="9,164" size="512,1" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/seperator.png" alphatest="off" zPosition="1" />\n\t\t\t\t<widget name="save" position="150,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<widget name="cancel" position="365,173" size="125,20" font="{font};18" halign="left" transparent="1" zPosition="1" />\n\t\t\t\t<ePixmap position="125,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/green.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<ePixmap position="340,174" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="1" />\n\t\t\t\t<widget name="plugin" position="9,203" size="512,288" alphatest="blend" zPosition="1" />\n\t\t\t</screen>'
 
     def __init__(self, session):
-        if config.plugins.mp3browser.font.value == 'yes':
-            font = 'Sans'
-        else:
-            font = 'Regular'
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
         self.skin = skinScale(applySkinVars(mp3BrowserConfig.skin, self.dict))
-        print("[MP3Browser][mp3BrowserConfig]skin ", self.skin)
+#       print("[MP3Browser][mp3BrowserConfig]skin ", self.skin)
         Screen.__init__(self, session)
         self.sortorder = config.plugins.mp3browser.sortorder.value
         self.mp3folder = config.plugins.mp3browser.mp3folder.value
+        if not fileExists(config.plugins.mp3browser.cachefolder.value):
+            config.plugins.mp3browser.cachefolder.value = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache'            
         self.cachefolder = config.plugins.mp3browser.cachefolder.value
         self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
         self.lang = config.plugins.mp3browser.language.value
@@ -5932,10 +5798,9 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
         current = self['config'].getCurrent()
         if current == self.foldername:
             self.session.openWithCallback(self.folderSelected, FolderSelection, self.mp3folder)
-        elif current == getConfigListEntry('Goto last MP3 on Start:', config.plugins.mp3browser.lastmp3) or current == getConfigListEntry('Gehe zur letzten MP3 beim Start:', config.plugins.mp3browser.lastmp3):
+        elif current == getConfigListEntry('Goto last MP3 on Start:', config.plugins.mp3browser.lastmp3):
             if config.plugins.mp3browser.showfolder.value == 'no' and config.plugins.mp3browser.lastmp3.value == 'folder':
                 config.plugins.mp3browser.lastmp3.value = 'yes'
-            self.session.openWithCallback(self.returnPin, PinInput, pinList=[self.pin], triesEntry=config.ParentalControl.retries.servicepin)
         elif current == getConfigListEntry('Backup Database:', config.plugins.mp3browser.backup):
             if os.path.exists(self.cachefolder):
                 if fileExists(self.database):
@@ -5999,15 +5864,6 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
             config.plugins.mp3browser.mp3folder.value = folder
             config.plugins.mp3browser.mp3folder.save()
         return
-
-    def returnPin(self, pin):
-        if pin:
-            config.plugins.mp3browser.paypal.value = 'no'
-            config.plugins.mp3browser.paypal.save()
-            configfile.save()
-        else:
-            config.plugins.mp3browser.paypal.value = 'yes'
-            config.plugins.mp3browser.paypal.save()
 
     def save(self):
         if self.ready == True:
@@ -6181,4 +6037,3 @@ def Plugins(**kwargs):
         return [PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_MENU], fnc=menu),
          PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_PLUGINMENU], icon='plugin.png', fnc=main),
          PluginDescriptor(name='MP3 Browser', description=plugindesc, where=[PluginDescriptor.WHERE_EXTENSIONSMENU], fnc=main)]
-# okay decompiling /home/twol/Videos/plugin.pyo
