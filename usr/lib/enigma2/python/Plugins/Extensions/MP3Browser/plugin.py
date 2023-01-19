@@ -182,16 +182,9 @@ config.plugins.mp3browser.metrixcolor = ConfigSelection(default='0x00000000', ch
 default_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default.png'
 defaultfolder_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/default_folder.png'
   
-if config.plugins.mp3browser.font.value == 'yes':
-    try:
-        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False)
-    except Exception as ex:
-        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False, 0)
+addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False)
+addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
 
-    try:
-        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
-    except Exception as ex:
-        addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False, 0)
 
 def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args, **kwargs):
     print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs)
@@ -202,9 +195,6 @@ def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args,
     try:
         response = requests.get(url, headers=myheaders)
         response.raise_for_status()
-        if file:
-       
-            print('[MP3Browser][threadGetPage] output: ', response.content)
         if file is None:
             success(response.content)
         elif key is not None:
@@ -213,11 +203,28 @@ def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args,
             success(response.content, file)
     except HTTPError as httperror:
         print('[MP3Browser][threadGetPage] Http error: ', httperror)
-        fail(httperror)  # E0602 undefined name 'error'
+        if fail is not None:
+            fail(httperror)
     except Exception as error:
         print('[MP3Browser][threadGetPage] error: ', error)
         if fail is not None:
             fail(error)
+            
+def threadGetPage2(url=None, file=None, key=None, success=None, fail=None, *args, **kwargs):
+#    print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs)
+    
+    authHeaders = {'User-Agent', 'Twisted Client'}
+    myheaders = {'User-Agent': 'Twisted Client Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',}    
+    response = requests.get(url, headers=myheaders)
+    response.raise_for_status()
+#       print('[MP3Browser][threadGetPage] output: ', response.content)
+    if file is None:
+        success(response.content)
+    elif key is not None:
+        success(response.content, file, key)
+    else:
+        success(response.content, file)
+        
   
 def skinScale(skin):
     def repl(m):
@@ -323,9 +330,8 @@ class mp3BrowserMetrix(Screen):
         print("[MP3Browser][mp3BrowserMetrix] ")    
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(mp3BrowserMetrix.skin, self.dict))
+        self.skin = applySkinVars(mp3BrowserMetrix.skin, self.dict)
         Screen.__init__(self, session)
-        self.fhd = False
         self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
         self.toogleHelp = self.session.instantiateDialog(helpScreen)
         self.showhelp = False
@@ -351,6 +357,9 @@ class mp3BrowserMetrix(Screen):
         self.trackold = ''
         self.profile = ''
         self.lyrics = ''
+        self.lastArtistdisco = ""        
+        self.lastArtist = ""
+        self.lastPoster = ""        
         self.namelist = []
         self.mp3list = []
         self.datelist = []
@@ -598,7 +607,7 @@ class mp3BrowserMetrix(Screen):
         self.orphaned = 0
         self.lastArtist = ""
         self.lastPoster = ""
-        self.lastPosterUrl = ""        
+        self.lastPosterUrl = ""
         self.pngjpeg = ""
         if self.fav == True:
             self.fav = False
@@ -648,7 +657,7 @@ class mp3BrowserMetrix(Screen):
                             self.yearlist.append(year)
                             self.runtimelist.append(runtime)
                             self.bitratelist.append(bitrate)
-                            artistntrack = transLYRICSTIME(artist + '-' + track + '.jpg')
+                            artistntrack = transLYRICSTIME(artist + '-' + track) + '.jpg'
                             poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
                             print("[MP3Browser][Database_run]1 poster",  poster)        
                             if fileExists(poster):
@@ -681,7 +690,7 @@ class mp3BrowserMetrix(Screen):
                                         ext = '.png'
                                     else:
                                         ext = '.jpg'
-                                    posterurl = config.plugins.mp3browser.cachefolder.value + '/' + name + ext
+                                    posterurl = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ext
 #                                   print("[MP3Browser][Database_run]A artist, posterurl", artist, "   ", posterurl)                                
                                     f = open(posterurl, 'wb')
                                     f.write(poster[0].data)
@@ -772,26 +781,13 @@ class mp3BrowserMetrix(Screen):
             self.session.open(MessageBox, '\nNo new MP3s found:\nYour Database is up to date.', MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         elif found == False:
-            if self.orphaned == 1:
-                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entry deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
-            else:
-                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         elif self.orphaned == 0:
-            if self.dbcountmax == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
-            else:
-                self.session.open(MessageBox, '\n%s MP3s imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
+            self.session.open(MessageBox, '\n%s MP3s imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         else:
-            if self.dbcountmax == 1 and self.orphaned == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            elif self.dbcountmax == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            elif self.orphaned == 1:
-                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            else:
-                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         return
 
@@ -868,47 +864,69 @@ class mp3BrowserMetrix(Screen):
                 self.makePoster()
                 self.makeInfo()
 
-
     def makePoster(self):
         print("[MP3Browser][makPoster] Entry self.index ", self.index)    
         posterurl = self.posterlist[self.index]
         poster = sub('.*?[/]', '', posterurl)
         poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
-        print("[MP3Browser][makePoster]1 poster",  poster)        
-        if fileExists(poster):
-            print("[MP3Browser][makePoster]1 posterurl, poster",  posterurl, poster)
-            self['poster'].instance.setPixmapFromFile(poster)
+        self.artist = self.artistlist[self.index]
+        self.track = self.tracklist[self.index]
+        if self.lastArtist != self.artist:
+            self.lastPoster = ""
+            self.lastArtist = ""
+        artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
+        discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+        if fileExists(discogsfile):
+            poster = discogsfile
+            self.lastPoster = poster
+            self.lastArtist = self.artist
+            print("[MP3Browser][makePoster]1 poster, artistntrack",  poster, "   ", artistntrack) 
+        elif fileExists(poster) and "default" not in posterurl:
+            print("[MP3Browser][makePoster]1 posterurl, poster",  posterurl, "   ", poster)
         elif "default" in posterurl:
             print("[MP3Browser][makePoster]1 found default in posterurl",  posterurl)
             poster = defaultfolder_png if "default_folder" in posterurl else default_png
-        if search('http', posterurl) is not None:
+        elif search('http', posterurl) is not None:
             print("[MP3Browser][makePoster]1 found http not default in posterurl",  posterurl)        
-            callInThread(threadGetPage, url=url, file=poster, success=self.getPoster, fail=self.downloadError)
+            callInThread(threadGetPage, url=posterurl, file=poster, success=self.getPoster, fail=self.downloadError)
         else:
             filename = self.mp3list[self.index]
-            audio = ID3(filename)
+            try:
+                audio = ID3(filename)
+            except ID3NoHeaderError:
+                poster = defaultfolder_png if "default_folder" in posterurl else default_png
+                self['poster'].instance.setPixmapFromFile(posterurl)   
+                return                   
             poster = audio.getall('APIC')
             if len(poster) > 0:
                 f = open(posterurl, 'wb')
                 f.write(poster[0].data)
                 f.close()
-                self['poster'].instance.setPixmapFromFile(posterurl)
-                print("[MP3Browser][makePoster]1L poster",  poster)                
+                poster = posterurl
+#               print("[MP3Browser][makePoster]1L poster",  poster)                
             else:    
                 poster = defaultfolder_png if "default_folder" in posterurl else default_png
-                self['poster'].instance.setPixmapFromFile(posterurl)                                
                 print("[MP3Browser][makePoster]1L using default filename", filename)
-        return
+        print("[MP3Browser][makePoster]1 artist, lastArtist, poster, self.lastPoster, posterurl", self.artist, "   ", self.lastArtist, "   ", poster, "   ", self.lastPoster, "   ", posterurl)        
+        if "default" in poster and self.artist == self.lastArtist:
+                poster = self.lastPoster
+        print("[MP3Browser][makePoster]1 artist, lastArtist, poster, posterurl", self.artist, "   ", self.lastArtist, "   ", poster, "   ", posterurl)                
+        self['poster'].instance.setPixmapFromFile(poster)
+        self['poster'].show
+#        self['googlePoster'].instance.setPixmapFromFile(poster)
+#        self['googlePoster'].show()
+        self.showInfo()
+    
 
     def getPoster(self, output, poster):
         print("[MP3Browser][getPoster]1 found http not default in posterurl",  posterurl)    
-        output = output.decode()    
+#        output = output.decode()    
         f = open(poster, 'wb')
         f.write(output)
         f.close()
         if fileExists(poster):
             self['poster'].instance.setPixmapFromFile(poster)
-        return
+
 
     def makeInfo(self):
         try:
@@ -1056,7 +1074,7 @@ class mp3BrowserMetrix(Screen):
                 res.append(MultiContentEntryText(pos=(0, 0), size=(540, 40), font=26, color=16777215, color_sel=16777215, flags=RT_HALIGN_LEFT | RT_VALIGN_CENTER, text='<List of MP3 Folder>'))
             mp3s.append(res)
         self['list'].l.setList(mp3s)
-        self['list'].l.setFont(applySkinFactor(26), gFont('Metrix', applySkinFactor(26)))
+        self['list'].l.setFont(26, gFont('Metrix', 26))
         self['list'].l.setItemHeight(35)
         self['list'].moveToIndex(self.index)
 
@@ -1147,13 +1165,48 @@ class mp3BrowserMetrix(Screen):
                 self.hideInfo()
                 self.getDiscogs()
 
-    def stop(self):
-        self.playready = False
-        if self.background == True:
-            self.session.nav.stopService()
-            self.session.nav.playService(self.oldService)
-        if self.move == True:
-            self.coverTimer.stop()
+    def showMP3(self):
+        print("[MP3Browser][showMP3] self.ready",  self.ready,)
+        if self.ready == True:
+            mp3s = ''
+            if fileExists(self.database):
+                f = open(self.database, 'r')
+                for line in f:
+                    if self.filter in line:
+                        mp3line = line.split(':::')
+                        try:
+                            mp3 = mp3line[3] + ' - ' + mp3line[6]
+                        except IndexError as e:
+                            mp3 = ' '
+
+                        if mp3 != ' ':
+                            mp3s = mp3s + mp3 + ':::'
+
+                if self.showfolder == True:
+                    mp3s = mp3s + '<List of MP3 Folder>' + ':::'
+                self.mp3s = [ i for i in mp3s.split(':::') ]
+                self.mp3s.pop()
+                f.close()
+                self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
+
+    def gotoMP3(self, index):
+        print("[MP3Browser][gotoMP3] index",  index)
+        if index is not None:
+            self.index = index
+            try:
+                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
+                self['list'].moveToIndex(self.index)
+            except IndexError as e:
+                print("[MP3Browser][gotoMP3   ] Indexerror",  e)
+
+            self.makePoster()
+            self.makeInfo()
+            if self.toggle == 1:
+                self.hideList()
+                self.getLyrics()
+            elif self.toggle == 2:
+                self.hideInfo()
+                self.getDiscogs()
 
     def deleteMP3(self):
         if self.ready == True:
@@ -1535,6 +1588,10 @@ class mp3BrowserMetrix(Screen):
                 self['discogsartist'].show()
                 self['discogs'].setText(self.lyrics)
                 self['discogs'].show()
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+                if fileExists(discogsfile):
+                    self['poster'].instance.setPixmapFromFile(discogsfile)
+                    self['poster'].show()                 
                 self.ready = True
             else:
                 self['discogsartist'].setText('')
@@ -1562,6 +1619,10 @@ class mp3BrowserMetrix(Screen):
             self['discogsartist'].show()
             self['discogs'].setText(self.lyrics)
             self['discogs'].show()
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+            if fileExists(discogsfile):
+                self['poster'].instance.setPixmapFromFile(discogsfile)
+                self['poster'].show()              
             filepath = self.mp3list[self.index]
             filename = sub('.*?[/]', '', filepath)
             lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
@@ -1571,51 +1632,6 @@ class mp3BrowserMetrix(Screen):
             f.write(self.lyrics)
             f.close()
             self.ready = True
-        else:
-            artist = '%s - %s' % (self.artist, self.track)
-            if len(artist) > 35:
-                if artist[34:35] == ' ':
-                    artist = artist[0:34]
-                else:
-                    artist = artist[0:35] + 'FIN'
-                    artist = sub(' \\S+FIN', '', artist)
-                artist = artist + ' ...'
-            self['discogsartist'].setText(str(artist))
-            self['discogsartist'].show()
-            self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
-            self['discogs'].setText(self.lyrics)
-            self['discogs'].show()
-            artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
-            artistntrack = transLYRICSTIME(artistntrack)
-            url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
-            callInThread(threadGetPage, url=url, success=self.makeLyricsTime, fail=self.downloadLyricsTimeError)
-
-    def makeLyricsTime(self, output):
-        output = output.decode()    
-        # print("[MP3Browser][makeLyricsTime] entered output is  ", output)    
-        lyrics = findall('<div id="songlyrics".*?<p>\r\n(.*?)</p>', output, flags=DOTALL)
-        if lyrics:
-            self.lyrics = lyrics[0].replace('\t<br />\n<br />\n', '').replace('<br />', '').replace('\t', '')
-            artist = '%s - %s' % (self.artist, self.track)
-            if len(artist) > 35:
-                if artist[34:35] == ' ':
-                    artist = artist[0:34]
-                else:
-                    artist = artist[0:35] + 'FIN'
-                    artist = sub(' \\S+FIN', '', artist)
-                artist = artist + ' ...'
-            self['discogsartist'].setText(str(artist))
-            self['discogsartist'].show()
-            self['discogs'].setText(self.lyrics)
-            self['discogs'].show()
-            filepath = self.mp3list[self.index]
-            filename = sub('.*?[/]', '', filepath)
-            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
-            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
-            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
-            f = open(lyricsfile, 'w')
-            f.write(self.lyrics)
-            f.close()
         else:
             artist = '%s - %s' % (self.artist, self.track)
             if len(artist) > 35:
@@ -1630,41 +1646,48 @@ class mp3BrowserMetrix(Screen):
             self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
             self['discogs'].setText(self.lyrics)
             self['discogs'].show()
+            self.ready = True
+       
+
+    def downloadLyricsError(self,  *args, **kwargs):
+        artist = '%s - %s' % (self.artist, self.track)
+        print("[MP3Browser][downloadLyricsError] Entered artist", artist)
+        if len(artist) == 0:
+            return
+        else:
+            if len(artist) > 35:
+                if artist[34:35] == ' ':
+                    artist = artist[0:34]
+                else:
+                    artist = artist[0:35] + 'FIN'
+                    artist = sub(' \\S+FIN', '', artist)
+                artist = artist + ' ...'
+            print("[MP3Browser][downloadLyricsError] artist", artist)
+            self['discogsartist'].setText(artist)
+            self['discogsartist'].show()
+            self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+            self['discogs'].setText(self.lyrics)
+            self['discogs'].show()
         self.ready = True
 
     def getDiscogs(self):
         print("[MP3Browser][getDiscogs] Entered")   
         self.ready = False
-        try:
-            self.artist = self.artistlist[self.index]
-        except IndexError as e:
-            print("[MP3Browser][getDiscogs] Index error", e)
-            return                   
-        if self.artist == self.artistdisco:
+        self.artist = self.artistlist[self.index]
+        self.track = self.tracklist[self.index]
+        self.artistdisco = transLYRICSTIME(self.artist + '-' + self.track)
+        artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'                            
+        if self.artistdisco == self.lastArtistdisco:           # if not same artist and track find picture if possible
             self['discogsartist'].setText('%s' % self.artist)
-            self['discogs'].setText(self.profile)
             self['googlePoster'].show()
             self.ready = True
         else:
-            self.artistdisco = self.artist
+            self.lastArtistdisco = self.artistdisco
             self['discogsartist'].setText('%s' % self.artist)
-            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ".jpg"
             if fileExists(discogsfile):
-                self.profile = open(discogsfile).read()
-                self['discogs'].setText(self.profile)
-                self['discogs'].show()
-                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
-                posterpng = discogsfile.replace('.discogs', '.png')
-                posterbmp = discogsfile.replace('.discogs', '.bmp')
-                if fileExists(posterjpeg):
-                    self['googlePoster'].instance.setPixmapFromFile(posterjpeg)
-                    self['googlePoster'].show()
-                elif fileExists(posterpng):
-                    self['googlePoster'].instance.setPixmapFromFile(posterpng)
-                    self['googlePoster'].show()
-                elif fileExists(posterbmp):
-                    self['googlePoster'].instance.setPixmapFromFile(posterbmp)
-                    self['googlePoster'].show()
+                self['poster'].instance.setPixmapFromFile(discogsfile)
+                self['poster'].show()                                
                 self.ready = True
             else:
                 self['discogsartist'].setText('')
@@ -1674,66 +1697,57 @@ class mp3BrowserMetrix(Screen):
                 if artist.startswith('the '):
                     artist = artist.replace('the ', '') + '%2C%20the'
                 artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
-                url = 'http://api.discogs.com/artist/' + artist
-                url = url.encode()
+                token = "zalknVUvjOsaLdyXYSJeTKspUfcJBoxShqxgqUWp"
+                url = "http://api.discogs.com/database/search?q=%s&title=%s&token=%s" % (self.artist, self.track, token)
                 callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)
             self.ready = True
 
     def makeDiscogs(self, output):
-        output = output.decode()   
-        print("[MP3Browser][makeDiscogs] Entered")     
-        if search('Artist not found', output) is not None:
-            self['discogsartist'].setText('%s' % self.artist)
-            print("[MP3Browser][makeDiscogs] Artist not found", self.profile)            
-            self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
-            self['discogs'].setText(self.profile)
+        output = output.decode()
+        print("[MP3Browser][makeDiscogs] Entered, output ", output)
+        if output:
+            titleJpeg = output.split("thumb", 1)[1].split("jpeg", 1)[0][4:] + "jpeg"
+            coverJpeg = output.split("cover_image", 1)[1].split("jpeg", 1)[0][4:] + "jpeg"
+#           print("[MP3Browser][makeDiscogs] titelJpeg coverJpeg", titleJpeg, "      xxxx    ", coverJpeg)
+            callInThread(threadGetPage, url=titleJpeg, success=self.makeDiscogs2, fail=self.downloadDiscogsError)
         else:
-            profile = findall('"profile": "(.*?)", "releases_url"', output)
-            members = findall('"members": \\[(.*?)\\],', output)
-            print("[MP3Browser][makeDiscogs] profile & members", profile, "   ", members)            
-            if profile and members:
-                self['discogsartist'].setText('%s' % self.artist)
-                profile = transDISCOGS(profile[0])
-                members = transDISCOGS(members[0])
-                members = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
-                self.profile = profile + '\n\n' + members
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-
-            elif profile:
-                self['discogsartist'].setText('%s' % self.artist)
-                self.profile = transDISCOGS(profile[0])
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-
-            elif members:
-                self['discogsartist'].setText('%s' % self.artist)
-                members = transDISCOGS(members[0])
-                self.profile = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-
-            else:
-                self['discogsartist'].setText('%s' % self.artist)
-                self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
-                self['discogs'].setText(self.profile)
-        print("[MP3Browser][getDiscogs] Exit profile = ", self.profile)                 
+            self['discogsartist'].setText('%s' % self.artist)
+            self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
+            self['discogs'].setText(self.profile)
         self.ready = True
-        return
+
+    def makeDiscogs2(self, output):
+        if output:
+            self.artist = self.artistlist[self.index]
+            self.track = self.tracklist[self.index]          
+#           discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+            print("[MP3Browser][makeDiscogs2] Entered, discogsfile  ", discogsfile )            
+            f = open(discogsfile, 'wb')
+            f.write(output)
+            f.close()
+        self['poster'].instance.setPixmapFromFile(discogsfile)
+        self['poster'].show()
+        self.showInfo()
+        self.ready = True
+            
         
+    def downloadDiscogsError(self, output):
+        self['discogsartist'].setText('%s' % self.artist)
+        self['discogs'].setText('Discogs.com:\nArtist %s not found.' % self.artist)
+        self['poster'].show()
+        self.showInfo()
+        self.ready = True
+
+
+    def stop(self):
+        self.playready = False
+        if self.background == True:
+            self.session.nav.stopService()
+            self.session.nav.playService(self.oldService)
+        if self.move == True:
+            self.coverTimer.stop()
 
     def down(self):
         print("[MP3Browser][down] self.ready, self.toggle",  self.ready, "   ", self.toggle)    
@@ -1809,50 +1823,6 @@ class mp3BrowserMetrix(Screen):
             elif self.toggle == 2:
                 self.hideInfo()
                 self.getDiscogs()
-
-    def showMP3(self):
-        print("[MP3Browser][showMP3] self.ready",  self.ready,)    
-        if self.ready == True:
-            mp3s = ''
-            if fileExists(self.database):
-                f = open(self.database, 'r')
-                for line in f:
-                    if self.filter in line:
-                        mp3line = line.split(':::')
-                        try:
-                            mp3 = mp3line[3] + ' - ' + mp3line[6]
-                        except IndexError as e:
-                            mp3 = ' '
-
-                        if mp3 != ' ':
-                            mp3s = mp3s + mp3 + ':::'
-
-                if self.showfolder == True:
-                    mp3s = mp3s + '<List of MP3 Folder>' + ':::'
-                self.mp3s = [ i for i in mp3s.split(':::') ]
-                self.mp3s.pop()
-                f.close()
-                self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
-
-    def gotoMP3(self, index):
-        print("[MP3Browser][gotoMP3] index",  index)    
-        if index is not None:
-            self.index = index
-            try:
-                self['label3'].setText('Item %s/%s' % (str(self.index + 1), str(self.totalItem)))
-                self['list'].moveToIndex(self.index)
-            except IndexError as e:
-                print("[MP3Browser][gotoMP3   ] Indexerror",  e)
-
-            self.makePoster()
-            self.makeInfo()
-            if self.toggle == 1:
-                self.hideList()
-                self.getLyrics()
-            elif self.toggle == 2:
-                self.hideInfo()
-                self.getDiscogs()
-        return
 
     def gotoABC(self):
         self.session.openWithCallback(self.enterABC, getABC, self.ABC, False)
@@ -2093,53 +2063,8 @@ class mp3BrowserMetrix(Screen):
     def download(self, link, name):
         print("[download] link=%s, name =%s" % (link, name))
         callInThread(threadGetPage, url=link, success=name, fail=self.downloadError)
-            
+
     def downloadError(self, output):
-        self.ready = True
-
-    def downloadLyricsError(self, output):
-        output = output.decode()
-        artist = '%s - %s' % (self.artist, self.track)
-        if len(artist) > 35:
-            if artist[34:35] == ' ':
-                artist = artist[0:34]
-            else:
-                artist = artist[0:35] + 'FIN'
-                artist = sub(' \\S+FIN', '', artist)
-            artist = artist + ' ...'
-        self['discogsartist'].setText(str(artist))
-        self['discogsartist'].show()
-        self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
-        self['discogs'].setText(self.lyrics)
-        self['discogs'].show()
-        artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
-        artistntrack = transLYRICSTIME(artistntrack)
-        url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
-        callInThread(threadGetPage, url=url, success=self.makeLyricsTime, fail=self.downloadLyricsTimeError)
-
-    def downloadLyricsTimeError(self, output):
-        output = output.decode()
-        artist = '%s - %s' % (self.artist, self.track)
-        if len(artist) > 35:
-            if artist[34:35] == ' ':
-                artist = artist[0:34]
-            else:
-                artist = artist[0:35] + 'FIN'
-                artist = sub(' \\S+FIN', '', artist)
-            artist = artist + ' ...'
-        self['discogsartist'].setText(str(artist))
-        self['discogsartist'].show()
-        self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
-        self['discogs'].setText(self.lyrics)
-        self['discogs'].show()
-        self.ready = True
-
-    def downloadDiscogsError(self, output):
-        output = output.decode()
-        self['discogsartist'].setText('%s' % self.artist)
-        self['discogs'].setText('Discogs.com:\nArtist %s not found.' % self.artist)
-        self['googlePoster'].hide()
-        self.showInfo()
         self.ready = True
 
     def config(self):
@@ -2264,12 +2189,11 @@ class mp3Browser(Screen):
         color = config.plugins.mp3browser.color.value
         self.dict = {'font': font, 'color': color}        
         if self.xd == False:
-            self.skin = skinScale(applySkinVars(skinHD, self.dict))
+            self.skin = applySkinVars(skinHD, self.dict)
         else:
-            self.skin = skinScale(applySkinVars(skin, self.dict))
+            self.skin = applySkinVars(skin, self.dict)
         Screen.__init__(self, session)
 
-        self.fhd = False
         self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
         self.toogleHelp = self.session.instantiateDialog(helpScreen)
         self.showhelp = False
@@ -2324,6 +2248,9 @@ class mp3Browser(Screen):
         self.bitratelist = []
         self.genrelist = []
         self.posterlist = []
+        self.lastArtistdisco = ""        
+        self.lastArtist = ""
+        self.lastPoster = ""        
         self['frame'] = Pixmap()
         for x in list(range(self.posterALL)):
             self['poster' + str(x)] = Pixmap()
@@ -2587,7 +2514,7 @@ class mp3Browser(Screen):
                             self.yearlist.append(year)
                             self.runtimelist.append(runtime)
                             self.bitratelist.append(bitrate)
-                            artistntrack = transLYRICSTIME(artist + '-' + track + '.jpg')
+                            artistntrack = transLYRICSTIME(artist + '-' + track) + '.jpg'
                             poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
                             print("[MP3Browser][Database_run]1 poster",  poster)        
                             if fileExists(poster):
@@ -2687,7 +2614,6 @@ class mp3Browser(Screen):
                 self.finished_update(True)
         return
 
-
     def finished_update(self, found):
         print("[MP3Browser][finished_update]")     
         if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
@@ -2715,26 +2641,14 @@ class mp3Browser(Screen):
             self.session.open(MessageBox, '\nNo new MP3s found:\nYour Database is up to date.', MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         elif found == False:
-            if self.orphaned == 1:
-                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entry deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
-            else:
-                self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
+            self.session.open(MessageBox, '\nNo new MP3s found.\n%s orphaned Database Entries deleted.' % str(self.orphaned), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         elif self.orphaned == 0:
             if self.dbcountmax == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
-            else:
                 self.session.open(MessageBox, '\n%s MP3s imported into Database.' % str(self.dbcountmax), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         else:
-            if self.dbcountmax == 1 and self.orphaned == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            elif self.dbcountmax == 1:
-                self.session.open(MessageBox, '\n%s MP3 imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            elif self.orphaned == 1:
-                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entry deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
-            else:
-                self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
+            self.session.open(MessageBox, '\n%s MP3s imported into Database.\n%s orphaned Database Entries deleted.' % (str(self.dbcountmax), str(self.orphaned)), MessageBox.TYPE_INFO)
             self.makeMP3(self.filter)
         return
 
@@ -2865,51 +2779,64 @@ class mp3Browser(Screen):
 
 
     def makePoster(self, page):
-        for x in list(range(self.posterALL)):
+        for x in list(range(self.posterALL)):       # self.posterALL = 45
+            index = x + page * self.posterALL
+            self.dbcountmax = len(self.mp3list)-1            
+            print("[MP3Browser][makePoster]2 x, page, self.posterALL, self.dbcountmax",  x, "   ", page, "   ", self.posterALL, "   ", self.dbcountmax)            
             try:
-                index = x + page * self.posterALL
                 posterurl = self.posterlist[index]
-                poster = sub('.*?[/]', '', posterurl)
-                poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
-                print("[MP3Browser][makePoster]2 posterurl, poster",  posterurl, poster)
-                if fileExists(poster):
-                    self[('poster' + str(x))].instance.setPixmapFromFile(poster)
-                    self[('poster' + str(x))].show()
-                elif "default" in posterurl:
-                    print("[MP3Browser][makePoster]2 found default in posterurl",  posterurl)                
-                    poster = defaultfolder_png if "default_folder" in posterurl else default_png
-                    if fileExists(poster):
-                        self[('poster' + str(x))].instance.setPixmapFromFile(poster)
-                        self[('poster' + str(x))].show()                
-                elif search('http', posterurl) is not None:
-                    print("[MP3Browser][makePoster]2 found http not default in posterurl",  posterurl)
-                    callInThread(threadGetPage, url=posterurl, success=self.getPoster, file=poster, key=x, fail=self.downloadError)
-                else:
-                    filename = self.mp3list[index]
-                    audio = ID3(filename)
-                    poster = audio.getall('APIC')
-                    if len(poster) > 0:
-                        f = open(posterurl, 'wb')
-                        f.write(poster[0].data)
-                        f.close()
-                        if fileExists(posterurl):
-                            self[('poster' + str(x))].instance.setPixmapFromFile(posterurl)
-                            self[('poster' + str(x))].show()
-            except IndexError as e:
-                print("[MP3Browser][makePoster] Indexerror  x, page, self.posterall, e", x, "   ",  page, "   ", self.posterALL,  e)            
-                self[('poster' + str(x))].hide()
+            except:
+                index -= 1
+                posterurl = self.posterlist[index]
+            poster = sub('.*?[/]', '', posterurl)
+            poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
+            print("[MP3Browser][makePoster]2 posterurl, poster",  posterurl, poster)
+            self.artist = self.artistlist[index]
+            self.track = self.tracklist[index]
+            if self.lastArtist != self.artist:
+                self.lastPoster = ""
+                self.lastArtist = ""
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+            print("[MP3Browser][makePoster]2 discogsfile",  discogsfile)
+            if fileExists(discogsfile):
+                poster = discogsfile
+                self.lastPoster = poster
+                self.lastArtist = self.artist            
+            elif fileExists(poster) and "default" not in posterurl:
+                self[('poster' + str(x))].instance.setPixmapFromFile(poster)
+                self[('poster' + str(x))].show()
+            elif "default" in posterurl:
+                print("[MP3Browser][makePoster]2 found default in posterurl",  posterurl)                
+                poster = defaultfolder_png if "default_folder" in posterurl else default_png
+            elif search('http', posterurl) is not None:
+                print("[MP3Browser][makePoster]2 found http not default in posterurl",  posterurl)
+                callInThread(threadGetPage, url=posterurl, success=self.getPoster, file=poster, key=x, fail=self.downloadError)
+            else:
+                filename = self.mp3list[index]
+                audio = ID3(filename)
+                poster = audio.getall('APIC')
+                if len(poster) > 0:
+                    f = open(posterurl, 'wb')
+                    f.write(poster[0].data)
+                    f.close()
+                    poster = posterurl
+                else:    
+                    poster = defaultfolder_png if "default_folder" in posterurl else default_png                    
+            if "default" in poster and self.artist == self.lastArtist:
+                    poster = self.lastPoster
+            self[('poster' + str(x))].instance.setPixmapFromFile(poster)
+            self[('poster' + str(x))].show()
         self[('poster_back' + str(self.wallindex))].hide()
-        return
+
 
     def getPoster(self, output, poster, x):
-        output = output.decode()
         f = open(poster, 'wb')
         f.write(output)
         f.close()
         if fileExists(poster):
             self[('poster' + str(x))].instance.setPixmapFromFile(poster)
             self[('poster' + str(x))].show()
-        return
 
 
     def ok(self):
@@ -2933,7 +2860,6 @@ class mp3Browser(Screen):
                     self.coverTimer.start(500, True)
             except IndexError as e:
                 print("[MP3Browser][ok] Indexerror",  e)
-
 
     def stop(self):
         self.playready = False
@@ -3372,7 +3298,7 @@ class mp3Browser(Screen):
                 track = transCHARTLYRICS(self.track.lower())
                 url = 'http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=%s&song=%s' % (artist, track)
                 callInThread(threadGetPage, url=url, success=self.makeLyrics, fail=self.downloadLyricsError)
-        
+
     def makeLyrics(self, output):
         output = output.decode()
         # print("[MP3Browser][makeLyrics] entered output is  ", output)    
@@ -3389,125 +3315,89 @@ class mp3Browser(Screen):
             f = open(lyricsfile, 'w')
             f.write(self.lyrics)
             f.close()
-            self.ready = True
-        else:
-            self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
-            self['discogs'].setText(self.lyrics)
-            self['discogs'].show()
-            artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
-            artistntrack = transLYRICSTIME(artistntrack)
-            url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
-            callInThread(threadGetPage, url=url, success=self.makeLyricsTime, fail=self.downloadLyricsTimeError)
-
-
-    def makeLyricsTime(self, output):
-        output = output.decode()
-        # print("[MP3Browser][makeLyricsTime] entered output is  ", output)    
-        lyrics = findall('<div id="songlyrics".*?<p>\r\n(.*?)</p>', output, flags=DOTALL)
-        if lyrics:
-            self.lyrics = lyrics[0].replace('\t<br />\n<br />\n', '').replace('<br />', '').replace('\t', '')
-            self['discogs'].setText(self.lyrics)
-            self['discogs'].show()
-            filepath = self.mp3list[self.index]
-            filename = sub('.*?[/]', '', filepath)
-            lyricsfile = config.plugins.mp3browser.cachefolder.value + '/' + filename
-            lyricsfile = lyricsfile.replace('.MP3', '.lyrics')
-            lyricsfile = lyricsfile.replace('.mp3', '.lyrics')
-            f = open(lyricsfile, 'w')
-            f.write(self.lyrics)
-            f.close()
         else:
             self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
             self['discogs'].setText(self.lyrics)
             self['discogs'].show()
         self.ready = True
 
+    def downloadLyricsError(self, output):
+        self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
+        self['discogs'].setText(self.lyrics)
+        self['discogs'].show()
+        self.ready = True
+
     def getDiscogs(self):
         self.ready = False
-        try:
-            self.artist = self.artistlist[self.index]
-        except IndexError as e:
-                    print("[MP3Browser][getDiscogs] Indexerror",  e)
-                    return        
-        if self.artist == self.artistdisco:
+        self.artist = self.artistlist[self.index]
+        self.track = self.tracklist[self.index]
+        self.artistdisco = transLYRICSTIME(self.artist + '-' + self.track)
+        artistntrack = transLYRICSTIME(self.artist + '-' + self.track)                            
+        if self.artistdisco == self.lastArtistdisco:           # if not same artist and track find picture if possible
             self['discogs'].setText(self.profile)
             self['googlePoster'].show()
             self.ready = True
         else:
-            self.artistdisco = self.artist
+            self.lastArtistdisco = self.artistdisco
             discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
             if fileExists(discogsfile):
                 self.profile = open(discogsfile).read()
                 self['discogs'].setText(self.profile)
                 self['discogs'].show()
-                posterjpeg = discogsfile.replace('.discogs', '.jpeg')
-                posterpng = discogsfile.replace('.discogs', '.png')
-                posterbmp = discogsfile.replace('.discogs', '.bmp')
-                if fileExists(posterjpeg):
-                    self['googlePoster'].instance.setPixmapFromFile(posterjpeg)
-                    self['googlePoster'].instance.setPixmapFromFile(posterjpeg)
-                    self['googlePoster'].show()
-                elif fileExists(posterpng):
-                    self['googlePoster'].instance.setPixmapFromFile(posterpng)
-                    self['googlePoster'].show()
-                elif fileExists(posterbmp):
-                    self['googlePoster'].instance.setPixmapFromFile(posterbmp)
-                    self['googlePoster'].show()
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ".jpg"
+            if fileExists(discogsfile):
+                self['googlePoster'].instance.setPixmapFromFile(discogsfile)
+                self['googlePoster'].show()
                 self.ready = True
             else:
                 self['discogs'].setText('')
                 self['googlePoster'].hide()
                 artist = self.artist.lower()
-                if artist.startswith('the '):
-                    artist = artist.replace('the ', '') + '%2C%20the'
-                artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
-                url = 'http://api.discogs.com/artist/' + artist
-                url = url.encode()
-                callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)                
+                token = "zalknVUvjOsaLdyXYSJeTKspUfcJBoxShqxgqUWp"
+#                url = "http://api.discogs.com/database/search?q=%s&title=%s&token=%s" % (artist, self.track, token)
+                url = "http://api.discogs.com/database/search?q=%s&token=%s" % (artist, token)
+                callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)
+            self.ready = True
 
     def makeDiscogs(self, output):
         output = output.decode()
-        if search('Artist not found', output) is not None:
-            self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
-            self['discogs'].setText(self.profile)
+#       print("[MP3Browser][makeDiscogs] Entered, output ", output)
+        if output:
+            titleJpeg = output.split("thumb", 1)[1].split("jpeg", 1)[0][4:] + "jpeg"
+            coverJpeg = output.split("cover_image", 1)[1].split("jpeg", 1)[0][4:] + "jpeg"
+            print("[MP3Browser][makeDiscogs] titelJpeg coverJpeg", titleJpeg, "      xxxx    ", coverJpeg)
+            callInThread(threadGetPage, url=titleJpeg, success=self.makeDiscogs2, fail=self.downloadDiscogsError)
         else:
-            profile = findall('"profile": "(.*?)", "releases_url"', output)
-            members = findall('"members": \\[(.*?)\\],', output)
-            if profile and members:
-                profile = transDISCOGS(profile[0])
-                members = transDISCOGS(members[0])
-                members = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
-                self.profile = profile + '\n\n' + members
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-
-            elif profile:
-                self.profile = transDISCOGS(profile[0])
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-
-            elif members:
-                members = transDISCOGS(members[0])
-                self.profile = 'Members:\n' + members.replace('", "', '\n').replace('"', '')
-                self.profile = self.profile.replace('\\r\\n', '\n')
-                self['discogs'].setText(self.profile)
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + '.discogs'
-                f = open(discogsfile, 'w')
-                f.write(self.profile)
-                f.close()
-            else:
-                self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
-                self['discogs'].setText(self.profile)
+            self['discogsartist'].setText('%s' % self.artist)
+            self.profile = 'Discogs.com:\nNo artist profile available for %s.' % self.artist
+            self['discogs'].setText(self.profile)
         self.ready = True
-        return
+
+    def makeDiscogs2(self, output):
+        if output:
+            self.artist = self.artistlist[self.index]
+            self.track = self.tracklist[self.index]          
+#           discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack 
+            print("[MP3Browser][makeDiscogs2] Entered, discogsfile  ", discogsfile )            
+            f = open(discogsfile, 'wb')
+            f.write(output)
+            f.close()
+        self['googlePoster'].instance.setPixmapFromFile(discogsfile)
+        self['googlePoster'].show()
+        self['poster'].instance.setPixmapFromFile(discogsfile)
+        self['poster'].show()        
+        self.showInfo()
+        self.ready = True
+        
+    def downloadDiscogsError(self, output):
+        self['discogsartist'].setText('%s' % self.artist)
+        self['discogs'].setText('Discogs.com:\nArtist %s not found.' % self.artist)
+        self['googlePoster'].show()
+        self.showInfo()
+        self.ready = True
+
 
     def paintFrame(self):
         try:
@@ -4109,29 +3999,6 @@ class mp3Browser(Screen):
     def downloadError(self, output):
         self.ready = True
 
-    def downloadLyricsError(self, output):
-        self.lyrics = 'ChartLyrics:\nNo Lyrics for %s - %s found.\n\nSearching on lyrics.time for Lyrics...' % (self.artist, self.track)
-        self['discogs'].setText(self.lyrics)
-        self['discogs'].show()
-        artistntrack = self.artist.lower() + '-' + self.track.lower() + '-'
-        artistntrack = transLYRICSTIME(artistntrack)
-        url = 'http://www.lyricstime.com/%slyrics.html' % artistntrack
-        callInThread(threadGetPage, url=url, success=self.makeLyricsTime, fail=self.downloadLyricsTimeError)
-
-    def downloadLyricsTimeError(self, output):
-        output = output.decode()
-        self.lyrics = 'ChartLyrics/lyrics.time:\nNo Lyrics for %s - %s found.' % (self.artist, self.track)
-        self['discogs'].setText(self.lyrics)
-        self['discogs'].show()
-        self.ready = True
-
-    def downloadDiscogsError(self, output):
-        output = output.decode()
-        self.profile = 'Discogs.com:\nArtist %s not found.' % self.artist
-        self['discogs'].setText(self.profile)
-        self['googlePoster'].hide()
-        self.ready = True
-
     def config(self):
         if self.ready == True:
             config.usage.on_movie_stop.value = self.movie_stop
@@ -4500,7 +4367,7 @@ class filterList(Screen):
             self.listwidth = 250
             png = 'logoFilter'
         self.dict = {'screenwidth': screenwidth, 'screenheight': screenheight, 'listwidth': listwidth, 'listheight': listheight, 'png': png}
-        self.skin = skinScale(applySkinVars(filterList.skin, self.dict))
+        self.skin = applySkinVars(filterList.skin, self.dict)
         Screen.__init__(self, session)
         self.hideflag = True
         self.setTitle(titel)
@@ -4784,7 +4651,6 @@ class mp3List(Screen):
             c = self['list'].getSelectedIndex()
             current = self.poster[c]
             self.close(current)
-            
 
     def gotoEnd(self):
         if self.ready == True:
@@ -4792,7 +4658,7 @@ class mp3List(Screen):
             if end > 4:
                 self['list'].moveToIndex(end)
                 self.leftUp()
-                self.rightDown()            
+                self.rightDown()
 
     def down(self):
         if self.ready == True:
@@ -5079,7 +4945,7 @@ class getABC(Screen):
         print("[MP3Browser][getABC] ")    
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(getABC.skin, self.dict))
+        self.skin = applySkinVars(getABC.skin, self.dict)
         Screen.__init__(self, session)
         if XYZ == True and ABC == 'ABC':
             self.field = 'WXYZ'
@@ -5331,7 +5197,7 @@ class switchScreen(Screen):
         print("[MP3Browser][switchScreen] ")    
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(switchScreen.skin, self.dict))
+        self.skin = applySkinVars(switchScreen.skin, self.dict)
         Screen.__init__(self, session)
         self['select_1'] = Pixmap()
         self['select_2'] = Pixmap()
@@ -5451,22 +5317,19 @@ class mp3Fav(Screen):
     skinHD = '\n\t\t\t<screen position="center,center" size="620,590" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="620,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoFavHD.png" zPosition="1"/>\n\t\t\t\t<ePixmap position="10,5" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="2" />\n\t\t\t\t<widget name="label" position="34,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="left" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="label2" position="360,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="right" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="favmenu" position="10,70" size="600,510" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
 
     def __init__(self, session, newmp3):
-        if config.plugins.mp3browser.font.value == 'yes':
-            font = 'Sans'
-        else:
-            font = 'Regular'
+        font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
         deskWidth = getDesktop(0).size().width()
         if deskWidth >= 1280:
             self.listwidth = 600
             self.font = 24
             self.xd = False
-            self.skin = skinScale(applySkinVars(mp3Fav.skinHD, self.dict))
+            self.skin = applySkinVars(mp3Fav.skinHD, self.dict)
         else:
             self.listwidth = 500
             self.font = 22
             self.xd = True
-            self.skin = skinScale(applySkinVars(mp3Fav.skin, self.dict))
+            self.skin = applySkinVars(mp3Fav.skin, self.dict)
         self.session = session
         Screen.__init__(self, session)
         print("[MP3Browser][mp3Fav]")        
@@ -5479,7 +5342,7 @@ class mp3Fav(Screen):
         self.favlist = []
         self.faventries = []
         self['favmenu'] = ItemList([])
-        self['label'] = Label('= Remove Favorit')
+        self['label'] = Label('= Remove Favorite')
         self['label2'] = Label('0/1 = Move to End/First')
         self['actions'] = ActionMap(['OkCancelActions', 'DirectionActions', 'ColorActions', 'HelpActions', 'NumberActions'], {'ok': self.exit, 
            'cancel': self.exit, 
@@ -5679,15 +5542,15 @@ class ItemList(MenuList):
         MenuList.__init__(self, items, enableWrapAround, eListboxPythonMultiContent)
         print("[MP3Browser][ItemList]items", items)        
         if config.plugins.mp3browser.font.value == 'yes':
-            self.l.setFont(applySkinFactor(26), gFont('Sans', applySkinFactor(26)))
-            self.l.setFont(applySkinFactor(24), gFont('Sans', applySkinFactor(24)))
-            self.l.setFont(applySkinFactor(22), gFont('Sans', applySkinFactor(22)))
-            self.l.setFont(applySkinFactor(20), gFont('Sans', applySkinFactor(20)))
+            self.l.setFont(26, gFont('Sans', 26))
+            self.l.setFont(24, gFont('Sans', 24))
+            self.l.setFont(22, gFont('Sans', 22))
+            self.l.setFont(20, gFont('Sans', 20))
         else:
-            self.l.setFont(applySkinFactor(26), gFont('Regular', applySkinFactor(26)))
-            self.l.setFont(applySkinFactor(24), gFont('Regular', applySkinFactor(24)))
-            self.l.setFont(applySkinFactor(22), gFont('Regular', applySkinFactor(22)))
-            self.l.setFont(applySkinFactor(20), gFont('Regular', applySkinFactor(20)))
+            self.l.setFont(26, gFont('Regular', 26))
+            self.l.setFont(24, gFont('Regular', 24))
+            self.l.setFont(22, gFont('Regular', 22))
+            self.l.setFont(20, gFont('Regular', 20))
 
 
 class helpScreen(Screen):
@@ -5697,7 +5560,7 @@ class helpScreen(Screen):
         print("[MP3Browser][helpScreen]")    
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(helpScreen.skin, self.dict))
+        self.skin = applySkinVars(helpScreen.skin, self.dict)
         Screen.__init__(self, session)
         self.setTitle('MP3 Browser Key Assignment')
         self['label'] = Label('     : YouTube Music Video\n     : Wikipedia Search\n     : Switch Plugin Style\n     : Toggle hide/show Plugin\n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list')
@@ -5712,7 +5575,7 @@ class infoScreenMP3Browser(Screen):
         print("[MP3Browser][infoScreenMP3Browser]")    
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(infoScreenMP3Browser.skin, self.dict))
+        self.skin = applySkinVars(infoScreenMP3Browser.skin, self.dict)
         Screen.__init__(self, session)
         self.check = check
         self['label'] = Label(' ')
@@ -5965,7 +5828,7 @@ class FolderSelection(Screen):
         else:
             font = 'Regular'
         self.dict = {'font': font}
-        self.skin = skinScale(applySkinVars(FolderSelection.skin, self.dict))
+        self.skin = applySkinVars(FolderSelection.skin, self.dict)
         Screen.__init__(self, session)
         lang = config.plugins.mp3browser.language.value
         self['save'] = Label('Save')
