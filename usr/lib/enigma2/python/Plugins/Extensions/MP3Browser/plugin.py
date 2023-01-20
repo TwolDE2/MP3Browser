@@ -657,8 +657,8 @@ class mp3BrowserMetrix(Screen):
                             self.yearlist.append(year)
                             self.runtimelist.append(runtime)
                             self.bitratelist.append(bitrate)
-                            artistntrack = transLYRICSTIME(artist + '-' + track) + '.jpg'
-                            poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+                            artistntrack = transLYRICSTIME(artist + '-' + track)
+                            poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
                             print("[MP3Browser][Database_run]1 poster",  poster)        
                             if fileExists(poster):
                                 posterurl = poster
@@ -874,8 +874,8 @@ class mp3BrowserMetrix(Screen):
         if self.lastArtist != self.artist:
             self.lastPoster = ""
             self.lastArtist = ""
-        artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
-        discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+        artistntrack = transLYRICSTIME(self.artist + '-' + self.track)
+        discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
         if fileExists(discogsfile):
             poster = discogsfile
             self.lastPoster = poster
@@ -1588,7 +1588,8 @@ class mp3BrowserMetrix(Screen):
                 self['discogsartist'].show()
                 self['discogs'].setText(self.lyrics)
                 self['discogs'].show()
-                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+                artistntrack = transLYRICSTIME(self.artist + '-' + self.track) 
+                discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
                 if fileExists(discogsfile):
                     self['poster'].instance.setPixmapFromFile(discogsfile)
                     self['poster'].show()                 
@@ -1619,7 +1620,8 @@ class mp3BrowserMetrix(Screen):
             self['discogsartist'].show()
             self['discogs'].setText(self.lyrics)
             self['discogs'].show()
-            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) 
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
             if fileExists(discogsfile):
                 self['poster'].instance.setPixmapFromFile(discogsfile)
                 self['poster'].show()              
@@ -1676,7 +1678,7 @@ class mp3BrowserMetrix(Screen):
         self.artist = self.artistlist[self.index]
         self.track = self.tracklist[self.index]
         self.artistdisco = transLYRICSTIME(self.artist + '-' + self.track)
-        artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'                            
+        artistntrack = transLYRICSTIME(self.artist + '-' + self.track)                            
         if self.artistdisco == self.lastArtistdisco:           # if not same artist and track find picture if possible
             self['discogsartist'].setText('%s' % self.artist)
             self['googlePoster'].show()
@@ -1693,10 +1695,6 @@ class mp3BrowserMetrix(Screen):
                 self['discogsartist'].setText('')
                 self['discogs'].setText('')
                 self['googlePoster'].hide()
-                artist = self.artist.lower()
-                if artist.startswith('the '):
-                    artist = artist.replace('the ', '') + '%2C%20the'
-                artist = artist.replace(' ', '%20').replace('&', '%26').replace(',', '%2C').replace('-', '%2D').replace('.', '%2E').replace('/', '%2F')
                 token = "zalknVUvjOsaLdyXYSJeTKspUfcJBoxShqxgqUWp"
                 url = "http://api.discogs.com/database/search?q=%s&title=%s&token=%s" % (self.artist, self.track, token)
                 callInThread(threadGetPage, url=url, success=self.makeDiscogs, fail=self.downloadDiscogsError)
@@ -1720,9 +1718,8 @@ class mp3BrowserMetrix(Screen):
         if output:
             self.artist = self.artistlist[self.index]
             self.track = self.tracklist[self.index]          
-#           discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
-            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
-            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track)
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
             print("[MP3Browser][makeDiscogs2] Entered, discogsfile  ", discogsfile )            
             f = open(discogsfile, 'wb')
             f.write(output)
@@ -2514,8 +2511,8 @@ class mp3Browser(Screen):
                             self.yearlist.append(year)
                             self.runtimelist.append(runtime)
                             self.bitratelist.append(bitrate)
-                            artistntrack = transLYRICSTIME(artist + '-' + track) + '.jpg'
-                            poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+                            artistntrack = transLYRICSTIME(artist + '-' + track)
+                            poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
                             print("[MP3Browser][Database_run]1 poster",  poster)        
                             if fileExists(poster):
                                 posterurl = poster
@@ -2547,7 +2544,7 @@ class mp3Browser(Screen):
                                         ext = '.png'
                                     else:
                                         ext = '.jpg'
-                                    posterurl = config.plugins.mp3browser.cachefolder.value + '/' + name + ext
+                                    posterurl = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ext
 #                                   print("[MP3Browser][Database_run]A artist, posterurl", artist, "   ", posterurl)                                
                                     f = open(posterurl, 'wb')
                                     f.write(poster[0].data)
@@ -2796,8 +2793,8 @@ class mp3Browser(Screen):
             if self.lastArtist != self.artist:
                 self.lastPoster = ""
                 self.lastArtist = ""
-            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
-            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track)
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
             print("[MP3Browser][makePoster]2 discogsfile",  discogsfile)
             if fileExists(discogsfile):
                 poster = discogsfile
@@ -3377,9 +3374,8 @@ class mp3Browser(Screen):
         if output:
             self.artist = self.artistlist[self.index]
             self.track = self.tracklist[self.index]          
-#           discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + self.artist.replace('/', '_') + "-" + self.track + ".jpg"
-            artistntrack = transLYRICSTIME(self.artist + '-' + self.track) + '.jpg'
-            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack 
+            artistntrack = transLYRICSTIME(self.artist + '-' + self.track)
+            discogsfile = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg' 
             print("[MP3Browser][makeDiscogs2] Entered, discogsfile  ", discogsfile )            
             f = open(discogsfile, 'wb')
             f.write(output)
