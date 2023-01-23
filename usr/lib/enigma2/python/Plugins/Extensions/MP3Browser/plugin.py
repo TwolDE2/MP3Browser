@@ -650,19 +650,20 @@ class mp3BrowserMetrix(Screen):
                             self.runtimelist.append(runtime)
                             self.bitratelist.append(bitrate)
                             artistntrack = transLYRICSTIME(artist + '-' + track)
+                            artistntrack = artistntrack.replace("/", "-")                            
                             poster = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + '.jpg'
                             print("[MP3Browser][Database_run]1 poster",  poster)        
                             if fileExists(poster):
-                                posterurl = poster
-                                print("[MP3Browser][Database_run]1 found poster in cache",  poster)
-                                with open(poster, 'rb') as Bin:
-                                    binData = Bin.read
-                                apic = APIC(data=binData,
-                                    type=PictureType.COVER_FRONT,
-                                    desc="cover",
-                                    mime="image/jpeg")
-                                tags = MP3(filename)
-                                try:
+                                try:                            
+                                    posterurl = poster
+                                    print("[MP3Browser][Database_run]1 found poster in cache",  poster)
+                                    with open(poster, 'rb') as Bin:
+                                        binData = Bin.read
+                                    apic = APIC(data=binData,
+                                        type=PictureType.COVER_FRONT,
+                                        desc="cover",
+                                        mime="image/jpeg")
+                                    tags = MP3(filename)
                                     tags.add(apic)
                                     tags.save()
                                     print("[MP3Browser][Database_run] success writing tag.add artist", artist)                                         
