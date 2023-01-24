@@ -64,6 +64,11 @@ config.plugins.mp3browser.lastfilter = ConfigSelection(default='no', choices=[('
 config.plugins.mp3browser.showfolder = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
 config.plugins.mp3browser.discogs = ConfigSelection(default='show', choices=[('show', 'Show'), ('hide', 'Hide')])
 config.plugins.mp3browser.font = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No')])
+deskWidth = getDesktop(0).size().width()
+if deskWidth >= 1280:
+    config.plugins.mp3browser.plugin_size = ConfigSelection(default='full', choices=[('full', '1280x720'), ('normal', '1024x576')])
+else:
+    config.plugins.mp3browser.plugin_size = ConfigSelection(default='normal', choices=[('full', '1280x720'), ('normal', '1024x576')])
 config.plugins.mp3browser.fhd = ConfigSelection(default='no', choices=[('yes', 'Yes'), ('no', 'No')])
 config.plugins.mp3browser.showinfo = ConfigSelection(default='info', choices=[('oninfo', 'Info Button'), ('info', 'Show Info'), ('always', 'Show Info & Lyrics')])  # toggle 0,1,2
 config.plugins.mp3browser.metrixlist = ConfigSelection(default='all', choices=[('all', 'Artist & Track Title'), ('artist', 'Artist')])
@@ -2127,16 +2132,30 @@ class mp3Browser(Screen):
 
     def __init__(self, session, index, filter):
         print("[MP3Browser][mp3Browser] ")    
-        self.spaceTop = 4
-        self.spaceLeft = 0
-        self.spaceX = 2
-        self.spaceY = 2
-        self.picX = 140
-        self.picY = 140
-        self.posterX = 9
-        self.posterY = 5
-        self.posterALL = 45
-        self.posterREST = 0
+        if config.plugins.mp3browser.plugin_size.value == 'full':
+            self.xd = False
+            self.spaceTop = 4
+            self.spaceLeft = 0
+            self.spaceX = 2
+            self.spaceY = 2
+            self.picX = 140
+            self.picY = 140
+            self.posterX = 9
+            self.posterY = 5
+            self.posterALL = 45
+            self.posterREST = 0
+        else:
+            self.xd = True
+            self.spaceTop = 1
+            self.spaceLeft = -3
+            self.spaceX = 4
+            self.spaceY = 4
+            self.picX = 110
+            self.picY = 110
+            self.posterX = 9
+            self.posterY = 5
+            self.posterALL = 45
+            self.posterREST = 0
         self.positionlist = []
         skincontent = ''
         numX = -1
@@ -2147,16 +2166,24 @@ class mp3Browser(Screen):
                 numX = 0
             posX = self.spaceLeft + self.spaceX + numX * (self.spaceX + self.picX)
             posY = self.spaceTop + self.spaceY + numY * (self.spaceY + self.picY)
-            self.positionlist.append((posX - 16, posY - 16))
+            if self.xd == False:
+                self.positionlist.append((posX - 16, posY - 16))
+            else:
+                self.positionlist.append((posX - 10, posY - 10))
             skincontent += '<widget name="poster' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="' + str(self.picX) + ',' + str(self.picY) + '" zPosition="-4" transparent="1" alphatest="on" />'
             skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="' + str(self.picX) + ',' + str(self.picY) + '" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD.png" />'
 
+        skin = '\n\t\t\t\t\t<screen position="center,center" size="1024,576" flags="wfNoBorder" title="  " >\n\t\t\t\t\t\t<widget name="infoback" position="15,15" size="460,400" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="name" position="25,16" size="440,55" font="{font};24" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="3" />\n\t\t\t\t\t\t<widget name="Artist" position="25,70" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="4" />\n\t\t\t\t\t\t<widget name="artist" position="25,100" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="5" />\n\t\t\t\t\t\t<widget name="Album" position="25,140" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="6" />\n\t\t\t\t\t\t<widget name="album" position="25,170" size="285,50" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />\n\t\t\t\t\t\t<widget name="Year" position="320,140" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="8" />\n\t\t\t\t\t\t<widget name="year" position="320,170" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="9" />\n\t\t\t\t\t\t<widget name="Track" position="25,210" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="10" />\n\t\t\t\t\t\t<widget name="track" position="25,240" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="11" />\n\t\t\t\t\t\t<widget name="Number" position="320,210" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="12" />\n\t\t\t\t\t\t<widget name="number" position="320,240" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="13" />\n\t\t\t\t\t\t<widget name="Runtime" position="25,280" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="14" />\n\t\t\t\t\t\t<widget name="runtime" position="25,310" size="285,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="15" />\n\t\t\t\t\t\t<widget name="Bitrate" position="320,280" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="16" />\n\t\t\t\t\t\t<widget name="bitrate" position="320,310" size="125,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="17" />\n\t\t\t\t\t\t<widget name="Genre" position="25,350" size="125,25" font="{font};20" halign="left" foregroundColor="{color}" transparent="1" zPosition="18" />\n\t\t\t\t\t\t<widget name="genre" position="25,380" size="440,25" font="{font};20" foregroundColor="#FFFFFF" transparent="1" zPosition="19" />\n\t\t\t\t\t\t<widget name="discogsback" position="549,15" size="460,400" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="discogs" position="559,22" size="440,390" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="31" />\n\t\t\t\t\t\t<widget name="googlePoster" position="25,50" size="440,330" alphatest="on" transparent="1" zPosition="31" />\n\t\t\t\t\t\t<widget name="frame" position="-9,-5" size="130,130" zPosition="-2" alphatest="on" />"\n\t\t\t\t\t\t' + skincontent + '\n\t\t\t\t\t</screen>'
         skinHD = '\n\t\t\t\t\t<screen position="center,center" size="1280,720" flags="wfNoBorder" title="  " >\n\t\t\t\t\t\t<widget name="infoback" position="25,25" size="525,430" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="name" position="40,30" size="495,70" font="{font};28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="3" />\n\t\t\t\t\t\t<widget name="Artist" position="40,100" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="4" />\n\t\t\t\t\t\t<widget name="artist" position="40,130" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="5" />\n\t\t\t\t\t\t<widget name="Album" position="40,170" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="6" />\n\t\t\t\t\t\t<widget name="album" position="40,200" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />\n\t\t\t\t\t\t<widget name="Year" position="370,170" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="8" />\n\t\t\t\t\t\t<widget name="year" position="370,200" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="9" />\n\t\t\t\t\t\t<widget name="Track" position="40,240" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="10" />\n\t\t\t\t\t\t<widget name="track" position="40,270" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="11" />\n\t\t\t\t\t\t<widget name="Number" position="370,240" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="12" />\n\t\t\t\t\t\t<widget name="number" position="370,270" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="13" />\n\t\t\t\t\t\t<widget name="Runtime" position="40,310" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="14" />\n\t\t\t\t\t\t<widget name="runtime" position="40,340" size="320,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="15" />\n\t\t\t\t\t\t<widget name="Bitrate" position="370,310" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="16" />\n\t\t\t\t\t\t<widget name="bitrate" position="370,340" size="125,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="17" />\n\t\t\t\t\t\t<widget name="Genre" position="40,380" size="125,28" font="{font};22" halign="left" foregroundColor="{color}" transparent="1" zPosition="18" />\n\t\t\t\t\t\t<widget name="genre" position="40,410" size="500,28" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="19" />\n\t\t\t\t\t\t<widget name="discogsback" position="730,25" size="525,430" alphatest="blend" transparent="1" zPosition="-1" />\n\t\t\t\t\t\t<widget name="discogs" position="745,40" size="500,400" font="{font};22" foregroundColor="#FFFFFF" transparent="1" zPosition="20" />\n\t\t\t\t\t\t<widget name="googlePoster" position="37,53" size="500,375" alphatest="on" transparent="1" zPosition="20" />\n\t\t\t\t\t\t<widget name="frame" position="-11,-7" size="172,172" zPosition="-2" alphatest="on" />"\n\t\t\t\t\t\t' + skincontent + '\n\t\t\t\t\t</screen>'
 
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         color = config.plugins.mp3browser.color.value
-        self.dict = {'font': font, 'color': color}        
-        self.skin = skinScale(applySkinVars(skinHD, self.dict))
+        if self.xd == False:
+            self.dict = {'font': font, 'color': color}
+            self.skin = skinScale(applySkinVars(skinHD, self.dict))
+        else:
+            self.dict = {'font': font, 'color': color}
+            self.skin = skinScale(applySkinVars(skin, self.dict))
         Screen.__init__(self, session)
 
         self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
@@ -3153,7 +3180,15 @@ class mp3Browser(Screen):
                 self['Genre'].hide()
                 self['genre'].hide()
                 return
-            if len(name) > 63:
+            if self.xd == True:
+                if len(name) > 66:
+                    if name[65:66] == ' ':
+                        name = name[0:65]
+                    else:
+                        name = name[0:66] + 'FIN'
+                        name = sub(' \\S+FIN', '', name)
+                    name = name + '...'
+            elif len(name) > 63:
                 if name[62:63] == ' ':
                     name = name[0:62]
                 else:
@@ -5157,7 +5192,13 @@ class moveCover(Screen):
     skinHD = '\n\t\t\t<screen position="0,0" size="1280,720" flags="wfNoBorder" title=" ">\n\t\t\t\t<widget name="cover" position="0,0" size="200,200" alphatest="blend" transparent="1" zPosition="1"/>\n\t\t\t</screen>'
 
     def __init__(self, session, cover):
-        self.skin = moveCover.skinHD
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            self.skin = moveCover.skinHD
+            self.xd = False
+        else:
+            self.skin = moveCover.skin
+            self.xd = True
         Screen.__init__(self, session)
         self.__event_tracker = ServiceEventTracker(screen=self, eventmap={iPlayableService.evEOF: self.quit})
         self.cover = cover
@@ -5176,8 +5217,12 @@ class moveCover(Screen):
         return
 
     def move(self):
-        pos_x = random.randint(0, 1080)
-        pos_y = random.randint(0, 520)
+        if self.xd == False:
+            pos_x = random.randint(0, 1080)
+            pos_y = random.randint(0, 520)
+        else:
+            pos_x = random.randint(0, 864)
+            pos_y = random.randint(0, 416)
         self['cover'].instance.move(ePoint(pos_x, pos_y))
         self.Timer.stop()
         self.Timer.start(2500, True)
@@ -5188,14 +5233,23 @@ class moveCover(Screen):
 
 
 class mp3Fav(Screen):
+    skin = '\n\t\t\t<screen position="center,center" size="520,490" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="520,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoFav.png" zPosition="1"/>\n\t\t\t\t<ePixmap position="10,5" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="2" />\n\t\t\t\t<widget name="label" position="34,5" size="250,20" font="{font};16" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="left" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="label2" position="310,5" size="200,20" font="{font};16" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="right" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="favmenu" position="10,60" size="500,420" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
     skinHD = '\n\t\t\t<screen position="center,center" size="620,590" title=" ">\n\t\t\t\t<ePixmap position="0,0" size="620,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logoFavHD.png" zPosition="1"/>\n\t\t\t\t<ePixmap position="10,5" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="2" />\n\t\t\t\t<widget name="label" position="34,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="left" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="label2" position="360,4" size="250,22" font="{font};18" foregroundColor="#697279" backgroundColor="#FFFFFF" halign="right" transparent="1" zPosition="2" />\n\t\t\t\t<widget name="favmenu" position="10,70" size="600,510" scrollbarMode="showOnDemand" zPosition="1" />\n\t\t\t</screen>'
 
     def __init__(self, session, newmp3):
         font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
         self.dict = {'font': font}
-        self.listwidth = 600
-        self.font = 24
-        self.skin = applySkinVars(mp3Fav.skinHD, self.dict)
+        deskWidth = getDesktop(0).size().width()
+        if deskWidth >= 1280:
+            self.listwidth = 600
+            self.font = 24
+            self.xd = False
+            self.skin = applySkinVars(mp3Fav.skinHD, self.dict)
+        else:
+            self.listwidth = 500
+            self.font = 22
+            self.xd = True
+            self.skin = applySkinVars(mp3Fav.skin, self.dict)
         self.session = session
         Screen.__init__(self, session)
         print("[MP3Browser][mp3Fav]")        
@@ -5247,7 +5301,10 @@ class mp3Fav(Screen):
 
             f.close()
             self['favmenu'].l.setList(self.faventries)
-            self['favmenu'].l.setItemHeight(30)
+            if self.xd == False:
+                self['favmenu'].l.setItemHeight(30)
+            else:
+                self['favmenu'].l.setItemHeight(28)
             if self.newmp3 == True:
                 self.newmp3 = False
                 lastindex = len(self.favlist) - 1
@@ -5494,6 +5551,7 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
         list.append(getConfigListEntry('Plugin Transparency:', config.plugins.mp3browser.transparency))
         list.append(getConfigListEntry('Plugin Language:', config.plugins.mp3browser.language))
         list.append(getConfigListEntry('Show Discogs Info:', config.plugins.mp3browser.discogs))
+        list.append(getConfigListEntry('Coverwall Plugin Size:', config.plugins.mp3browser.plugin_size))
         list.append(getConfigListEntry('Coverwall Info & Lyrics:', config.plugins.mp3browser.showinfo))
         list.append(getConfigListEntry('Coverwall Headline Color:', config.plugins.mp3browser.color))
         list.append(getConfigListEntry('Metrix List Content:', config.plugins.mp3browser.metrixlist))
