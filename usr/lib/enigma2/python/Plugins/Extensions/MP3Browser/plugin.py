@@ -303,7 +303,7 @@ def databaseUpdate_core(MP3Database):
 	lastPoster = ""
 	lastPosterUrl = ""
 	pngjpeg = ""
-	data = open(MP3Database).read()
+	data = fileReadLine(MP3Database)
 	allfiles = ':::'
 	folder = config.plugins.mp3browser.mp3folder.value
 	for root, dirs, files in walk(folder, topdown=False, onerror=None, followlinks=True):
@@ -1965,7 +1965,7 @@ class mp3BrowserMetrix(Screen):
 			except IndexError as e:
 				mp3 = 'None'
 
-			self.session.openWithCallback(self.databaseEdit_return, mp3Database, mp3)
+			self.session.openWithCallback(self.databaseEdit_return, mp3DatabaseStart, mp3)
 
 	def databaseEdit_return(self, changed):
 		if changed is True:
@@ -2269,9 +2269,9 @@ class mp3Browser(Screen):
 		if fileExists(self.database):
 			if self.index == 0:
 				if config.plugins.mp3browser.lastfilter.value == 'yes':
-					self.filter = open(self.lastfilter).read()
+					self.filter = fileReadLine(self.lastfilter)
 				if config.plugins.mp3browser.lastmp3.value == 'yes':
-					mp3 = open(self.lastfile).read()
+					mp3 = fileReadLine(self.lastfile)
 					mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
 					data = open(self.database).read()
 					count = 0
@@ -2347,13 +2347,8 @@ class mp3Browser(Screen):
 		if answer is True:
 			self.ready = False
 			if self.mp3list:
-				try:
-					mp3 = self.mp3list[self.index]
-					f = open(self.lastfile, 'w')
-					f.write(mp3)
-					f.close()
-				except IndexError as e:
-					print(f"[MP3Browser][databaseUpdate_return] indexError:{e}")
+				mp3 = self.mp3list[self.index]
+				fileWriteLine(self.lastfile, mp3)
 			if fileExists(self.database):
 				self.runTimer = eTimer()
 				self.runTimer.callback.append(self.databaseUpdate_run)
@@ -2382,9 +2377,9 @@ class mp3Browser(Screen):
 		print("[MP3Browser][databaseUpdate_finished]")     
 		if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
 			self.hideScreen()
-		mp3 = open(self.lastfile).read()
+		mp3 = fileReadLine(self.lastfile)
 		mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
-		data = open(self.database).read()
+		data = fileReadLine(self.database)
 		count = 0
 		for line in data.split('\n'):
 			if self.filter in line:
@@ -2425,8 +2420,8 @@ class mp3Browser(Screen):
 		self.posterlist = []
 		self.filter = filter
 		if fileExists(self.database):
-			f = open(self.database, 'r')
-			for line in f:
+			lines = fileReadLines(self.database)
+			for line in lines:
 				if filter in line:
 					try:           
 						name = filename = date = artist = album = number = track = year = genre = runtime = bitrate = " "                
@@ -2461,7 +2456,6 @@ class mp3Browser(Screen):
 					self.runtimelist.append(runtime)
 					self.bitratelist.append(bitrate)
 					self.posterlist.append(poster)
-			f.close()
 			if self.showfolder == True:
 				self.namelist.append('<List of MP3 Folder>')
 				self.mp3list.append(config.plugins.mp3browser.mp3folder.value + '...')
@@ -2540,8 +2534,8 @@ class mp3Browser(Screen):
 		if self.ready == True:
 			mp3s = ''
 			if fileExists(self.database):
-				f = open(self.database, 'r')
-				for line in f:
+				lines = fileReadLines(self.database)
+				for line in lines:
 					if self.filter in line:
 						mp3line = line.split(':::')
 						try:
@@ -2556,7 +2550,6 @@ class mp3Browser(Screen):
 					mp3s = mp3s + '<List of MP3 Folder>' + ':::'
 				self.mp3s = [ i for i in mp3s.split(':::') ]
 				self.mp3s.pop()
-				f.close()
 				self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
 
 	def gotoMP3(self, index):
@@ -2624,9 +2617,7 @@ class mp3Browser(Screen):
 						if search(mp3, line) is not None:
 							data = data.replace(line + '\n', '')
 
-					f = open(self.database, 'w')
-					f.write(data)
-					f.close()
+					fileWriteLine(self.database, data)
 					if self.index == self.maxentry - 1:
 						self.index -= 1
 					self.makeMP3(self.filter)
@@ -2688,14 +2679,13 @@ class mp3Browser(Screen):
 
 	def makePoster(self, page):
 		for x in list(range(self.posterALL)):       # self.posterALL = 45
+			print(f"[MP3Browser][makePoster]2 range:{list(range(self.posterALL))}")
 			index = x + page * self.posterALL
 			self.dbcountmax = len(self.mp3list)-1
-			print("[MP3Browser][makePoster]2 x, page, self.posterALL, self.dbcountmax",  x, "   ", page, "   ", self.posterALL, "   ", self.dbcountmax)            
-			try:
-				posterurl = self.posterlist[index]
-			except:
-				index -= 1
-				posterurl = self.posterlist[index]
+			# print(f"[MP3Browser][makePoster]2 index:{index}, x:{x}, page:{page}, self.posterALL:{self.posterALL}, self.dbcountmax:{self.dbcountmax}")            
+			if index > self.dbcountmax:
+				index = self.dbcountmax
+			posterurl = self.posterlist[index]
 			poster = sub('.*?[/]', '', posterurl)
 			poster = config.plugins.mp3browser.cachefolder.value + '/' + poster
 			print("[MP3Browser][makePoster]2 posterurl, poster",  posterurl, poster)
@@ -2814,9 +2804,7 @@ class mp3Browser(Screen):
 			if config.plugins.mp3browser.lastmp3.value == 'yes':
 				try:
 					mp3 = self.mp3list[self.index]
-					f = open(self.lastfile, 'w')
-					f.write(mp3)
-					f.close()
+					fileWriteLine(self.lastfile, mp3)
 				except IndexError as e:
 					print(f"[MP3Browser][returnStyle] self.index:{self.index}, Indexerror:{e}")
 
@@ -3478,7 +3466,7 @@ class mp3Browser(Screen):
 			except IndexError as e:
 				mp3 = 'None'
 
-			self.session.openWithCallback(self.databaseEdit_return, mp3Database, mp3)
+			self.session.openWithCallback(self.databaseEdit_return, mp3DatabaseStart, mp3)
 
 	def databaseEdit_return(self, changed):
 		if changed is True:
@@ -3580,23 +3568,19 @@ class mp3Browser(Screen):
 			if config.plugins.mp3browser.lastmp3.value == 'yes':
 				try:
 					mp3 = self.mp3list[self.index]
-					f = open(self.lastfile, 'w')
-					f.write(mp3)
-					f.close()
+					fileWriteLine(self.lastfile, mp3)
 				except IndexError as e:
 					print("[MP3Browser][exit] Indexerror",  e)
 
 			if config.plugins.mp3browser.lastfilter.value == 'yes':
-				f = open(self.lastfilter, 'w')
-				f.write(self.filter)
-				f.close()
+				fileWriteLine(self.lastfilter, self.filter)
 			self.session.deleteDialog(self.toogleHelp)
 			config.usage.on_movie_stop.value = self.movie_stop
 			config.usage.on_movie_eof.value = self.movie_eof
 			self.close()
 
 
-class mp3Database(Screen):
+class mp3DatabaseStart(Screen):
 	skin = """
 	<screen position="center,center" size="730,300" title=" ">
 		<ePixmap position="0,0" size="730,28" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/logo.png" zPosition="1"/>
@@ -3606,7 +3590,7 @@ class mp3Database(Screen):
 
 	def __init__(self, session, mp3):
 		Screen.__init__(self, session)
-		print("[MP3Browser][mp3Database] ")        
+		print("[MP3Browser][mp3DatabaseStart] ")        
 		self.hideflag = True
 		self.ready = False
 		self.change = False
@@ -5098,7 +5082,7 @@ class helpScreen(Screen):
 		self.skin = applySkinVars(helpScreen.skin, self.dict)
 		Screen.__init__(self, session)
 		self.setTitle('MP3 Browser Key Assignment')
-		self['label'] = Label('     : YouTube Music Video\n     : Wikipedia Search\n     : Switch Plugin Style\n     : Toggle hide/show Plugin\n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list')
+		self['label'] = Label('     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list')
 		self['actions'] = ActionMap(['OkCancelActions'], 
 			{'ok': self.close, 
 		   'cancel': self.close}, -1)
@@ -5106,33 +5090,26 @@ class helpScreen(Screen):
 
 class infoScreenMP3Browser(Screen):
 	skin = """
-	<screen position="center,center" size="425,425" title=" " >
-		<ePixmap position="0,0" size="425,425" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/info.png" zPosition="1"/>
-			<widget name="label" position="0,72" size="425,350" font="{font};18" foregroundColor="#000000" backgroundColor="#FFFFFF" halign="center" valign="center" transparent="1" zPosition="2" />
+	<screen position="center,center" size="512,512" flags="wfNoBorder" title=" " >
+		<ePixmap position="0,0" size="515,512" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/help.png" alphatest="on" transparent="0" zPosition="0" />
+		<ePixmap position="120,50" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/yellow.png" alphatest="blend" zPosition="3" />
+		<ePixmap position="120,71" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/green.png" alphatest="blend" zPosition="3" />
+		<ePixmap position="120,92" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/red.png" alphatest="blend" zPosition="3" />
+		<ePixmap position="120,113" size="18,18" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/buttons/blue.png" alphatest="blend" zPosition="3" />
+		<widget name="label" position="120,48" size="395,420" font="{font};18" transparent="1" zPosition="2" />
 	</screen>"""
 
-	def __init__(self, session, plugin, check):
-		print("[MP3Browser][infoScreenMP3Browser]")    
+	def __init__(self, session):
+		print("[MP3Browser][helpScreen]")    
 		font = 'Sans' if config.plugins.mp3browser.font.value == 'yes' else 'Regular'
 		self.dict = {'font': font}
-		self.skin = applySkinVars(infoScreenMP3Browser.skin, self.dict)
+		self.skin = applySkinVars(helpScreen.skin, self.dict)
 		Screen.__init__(self, session)
-		self.check = check
-		self['label'] = Label(' ')
-		self['actions'] = ActionMap(['OkCancelActions'], {'ok': self.close, 
+		self.setTitle('MP3 Browser Key Assignment')
+		self['label'] = Label('     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list')
+		self['actions'] = ActionMap(['OkCancelActions'], 
+			{'ok': self.close, 
 		   'cancel': self.close}, -1)
-		self.version = '2.0py3'
-		self.plugin = plugin
-		self.setTitle('MP3Browser Information')
-		return
-
-	def download(self, link, name):
-		print("[download] link=%s, name =%s" % (link, name))
-		callInThread(threadGetPage, url=link, success=name, fail=self.downloadError)
-
-	def downloadError(self, output):
-		print("[MP3Browser][downloaderror] ")
-
 
 
 class mp3BrowserConfig(ConfigListScreen, Screen):
