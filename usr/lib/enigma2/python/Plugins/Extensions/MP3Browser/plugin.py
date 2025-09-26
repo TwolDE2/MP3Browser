@@ -503,36 +503,34 @@ def filterFolderSetup():
 	folders.sort()
 	return folders, max	
 	
-def filterSetup(sequence):
+def filterSetup(database, sequence):
 	names = ''
-	if fileExists(self.database):
-		f = open(self.database, 'r')
-		max = 25
-		for line in f:
-			mp3line = line.split(':::')
-			try:
-				name = mp3line[sequence]
-			except IndexError as e:
-				name = ' '
-
-			if name != ' ':
-				names = names + name + ':::'
-
-		selfnames = [ i for i in names.split(':::') ]
-		selfnames.sort()
-		selfnames.pop(0)
+	lines = fileReadLines(database)
+	max = 25
+	for line in lines:
+		mp3line = line.split(':::')
 		try:
-			last = selfnames[(-1)]
-			for i in range(len(selfnames) - 2, -1, -1):
-				if last == selfnames[i]:
-					del selfnames[i]
-				else:
-					last = selfnames[i]
-					if len(last) > max:
-						max = len(last)
+			name = mp3line[sequence]
 		except IndexError as e:
-			print("[MP3Browser][filterArtist] Indexerror",  e)
-		return selfnames, max
+			name = ' '
+		if name != ' ':
+			names = names + name + ':::'
+
+	selfnames = [ i for i in names.split(':::') ]
+	selfnames.sort()
+	selfnames.pop(0)
+	try:
+		last = selfnames[(-1)]
+		for i in range(len(selfnames) - 2, -1, -1):
+			if last == selfnames[i]:
+				del selfnames[i]
+			else:
+				last = selfnames[i]
+				if len(last) > max:
+					max = len(last)
+	except IndexError as e:
+		print("[MP3Browser][filterSetup] selfnames Indexerror",  e)
+	return selfnames, max
 	
 class mp3BrowserMetrix(Screen):
 	skin = """
@@ -1958,22 +1956,19 @@ class mp3BrowserMetrix(Screen):
 		return
 
 	def filterArtist(self):
-		if self.ready == True:
-			self.artists, max = filterSetup(3)
-			if fileExists(self.database):
-				self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
+		if self.ready == True and fileExists(self.database):
+			self.artists, max = filterSetup(self.database, 3)
+			self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
 
 	def filterAlbum(self):
-		if self.ready == True:
-			self.albums, max = filterSetup(4)
-			if fileExists(self.database):			
-				self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
+		if self.ready == True and fileExists(self.database):
+			self.albums, max = filterSetup(self.database, 4)
+			self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
 
 	def filterGenre(self):
-		if self.ready == True:
-			self.genres, max = filterSetup(8)
-			if fileExists(self.database):		
-				self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
+		if self.ready == True and fileExists(self.database):
+			self.genres, max = filterSetup(self.database, 8)
+			self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
 
 	def filter_return(self, filter):
 		if filter and filter is not None:
@@ -3474,22 +3469,19 @@ class mp3Browser(Screen):
 		return
 
 	def filterArtist(self):
-		if self.ready == True:
-			self.artists, max = filterSetup(3)
-			if fileExists(self.database):
-				self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
+		if self.ready == True and fileExists(self.database):
+			self.artists, max = filterSetup(self.database, 3)
+			self.session.openWithCallback(self.filter_return, filterList, self.artists, 'Artist Selection', len(self.artists), max)
 
 	def filterAlbum(self):
-		if self.ready == True:
-			self.albums, max = filterSetup(4)
-			if fileExists(self.database):			
-				self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
+		if self.ready == True and fileExists(self.database):
+			self.albums, max = filterSetup(self.database, 4)
+			self.session.openWithCallback(self.filter_return, filterList, self.albums, 'Album Selection', len(self.albums), max)
 
 	def filterGenre(self):
-		if self.ready == True:
-			self.genres, max = filterSetup(8)
-			if fileExists(self.database):		
-				self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
+		if self.ready == True and fileExists(self.database):
+			self.genres, max = filterSetup(self.database, 8)
+			self.session.openWithCallback(self.filter_return, filterList, self.genres, 'Genre Selection', len(self.genres), max)
 
 	def filter_return(self, filter):
 		if filter and filter is not None:
