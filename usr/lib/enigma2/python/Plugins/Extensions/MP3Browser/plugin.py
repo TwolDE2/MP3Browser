@@ -418,10 +418,7 @@ def databaseUpdate_core(MP3Database):
 		if search(config.plugins.mp3browser.mp3folder.value, mp3folder) is not None and search(mp3folder, allfiles) is None:
 			orphaned += 1
 			data = data.replace(line + '\n', '')
-
-	f = open(MP3Database, 'w')
-	f.write(data)
-	f.close()
+	fileWriteLine(MP3Database, data)
 	del data
 	del allfiles
 	dbcount = 0
@@ -443,9 +440,7 @@ def databaseUpdate_core(MP3Database):
 
 def databaseSort(database):
 	sortorder = config.plugins.mp3browser.sortorder.value
-	f = open(database, 'r')
-	lines = f.readlines()
-	f.close()
+	lines = fileReadLines(database)
 	try:
 		if sortorder == 'artist':
 			lines.sort(key=lambda line: line.split(':::')[3].replace('The ', '').lower())
@@ -483,10 +478,7 @@ def databaseSort(database):
 			lines.sort(key=lambda line: line.split(':::')[9], reverse=True)
 	except IndexError as e:
 		print("[MP3Browser][databaseSort] Indexerror",  e)
-
-	fsorted = open(database + '.sorted', 'w')
-	fsorted.writelines(lines)
-	fsorted.close()
+	fileWriteLines(database + '.sorted', line)
 	rename(database + '.sorted', database)
 
 def filterFolderSetup():
@@ -761,14 +753,14 @@ class mp3BrowserMetrix(Screen):
 		if fileExists(self.database):
 			if self.index == 0:
 				if config.plugins.mp3browser.lastfilter.value == 'yes':
-					self.filter = open(self.lastfilter).read()
+					self.filter = fileReadLine(self.lastfilter)
 				if config.plugins.mp3browser.lastmp3.value == 'yes':
-					mp3 = open(self.lastfile).read()
+					mp3 = fileReadLine(self.lastfile)
 					if mp3.endswith('...'):
 						self.index = -1
 					else:
 						mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
-						data = open(self.database).read()
+						data = fileReadLine(self.database)
 						count = 0
 						for line in data.split('\n'):
 							if self.filter in line:
@@ -836,14 +828,9 @@ class mp3BrowserMetrix(Screen):
 		if answer is True:
 			self.ready = False
 			if self.mp3list:
-				try:
-					mp3 = self.mp3list[self.index]
-					f = open(self.lastfile, 'w')
-					f.write(mp3)
-					f.close()
-				except IndexError as e:
-					print(f"[MP3Browser][databaseUpdate_return] indexError:{e}")
-			if fileExists(self.database):
+				mp3 = self.mp3list[self.index]
+				fileWriteLine(self.lastfile, mp3)
+		if fileExists(self.database):
 				self.runTimer = eTimer()
 				self.runTimer.callback.append(self.databaseUpdate_run)
 				self.runTimer.start(500, True)
@@ -871,9 +858,9 @@ class mp3BrowserMetrix(Screen):
 		print("[MP3Browser][databaseUpdate_finished]")     
 		if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
 			self.hideScreen()
-		mp3 = open(self.lastfile).read()
+		mp3 = fileReadLine(self.lastfile)
 		mp3 = sub('\\(|\\)|\\[|\\]|\\+|\\?', '.', mp3)
-		data = open(self.database).read()
+		data = fileReadLine(self.database)
 		count = 0
 		for line in data.split('\n'):
 			if self.filter in line:
@@ -914,8 +901,8 @@ class mp3BrowserMetrix(Screen):
 		self.posterlist = []
 		self.filter = filter
 		if fileExists(self.database):
-			f = open(self.database, 'r')
-			for line in f:
+			lines = fileReadLines(self.database)
+			for line in lines:
 				if filter in line:
 					try:           
 						name = filename = date = artist = album = number = track = year = genre = runtime = bitrate = " "                
@@ -950,7 +937,6 @@ class mp3BrowserMetrix(Screen):
 					self.runtimelist.append(runtime)
 					self.bitratelist.append(bitrate)
 					self.posterlist.append(poster)
-			f.close()
 			if self.showfolder == True:
 				self.namelist.append('<List of MP3 Folder>')
 				self.mp3list.append(config.plugins.mp3browser.mp3folder.value + '...')
@@ -1001,8 +987,8 @@ class mp3BrowserMetrix(Screen):
 		if self.ready == True:
 			mp3s = ''
 			if fileExists(self.database):
-				f = open(self.database, 'r')
-				for line in f:
+				lines = fileReadLines(self.database)
+				for line in lines:
 					if self.filter in line:
 						mp3line = line.split(':::')
 						try:
@@ -1017,7 +1003,6 @@ class mp3BrowserMetrix(Screen):
 					mp3s = mp3s + '<List of MP3 Folder>' + ':::'
 				self.mp3s = [ i for i in mp3s.split(':::') ]
 				self.mp3s.pop()
-				f.close()
 				self.session.openWithCallback(self.gotoMP3, allMP3List, self.mp3s, self.index)
 
 	def gotoMP3(self, index):
@@ -1082,9 +1067,7 @@ class mp3BrowserMetrix(Screen):
 						if search(mp3, line) is not None:
 							data = data.replace(line + '\n', '')
 
-					f = open(self.database, 'w')
-					f.write(data)
-					f.close()
+					fileWriteLine(self.database, data)
 					if self.index == self.maxentry - 1:
 						self.index -= 1
 					self.makeMP3(self.filter)
@@ -1540,10 +1523,10 @@ class mp3BrowserMetrix(Screen):
 
 	def makeList(self):
 		print("[MP3BrowserMetrix][makeList]1 entered")    
-		f = open(self.database, 'r')
+		lines = fileReadLines(self.database)
 		mp3s = []
 		if config.plugins.mp3browser.metrixlist.value == 'all':
-			for line in f:
+			for line in lines:
 				if self.filter in line:
 					mp3line = line.split(':::')
 					try:
@@ -1585,7 +1568,6 @@ class mp3BrowserMetrix(Screen):
 					except IndexError as e:
 						print("[MP3BrowserMetrix][makeList]1 Indexerror",  e)
 
-		f.close()
 		if self.showfolder == True:
 			res = [
 			 '']
@@ -2070,16 +2052,11 @@ class mp3BrowserMetrix(Screen):
 			if config.plugins.mp3browser.lastmp3.value == 'yes':
 				try:
 					mp3 = self.mp3list[self.index]
-					f = open(self.lastfile, 'w')
-					f.write(mp3)
-					f.close()
+					fileWriteLine(self.lastfile, mp3)
 				except IndexError as e:
 					print("[MP3BrowserMetrix][exit] Indexerror",  e)
-
 			if config.plugins.mp3browser.lastfilter.value == 'yes':
-				f = open(self.lastfilter, 'w')
-				f.write(self.filter)
-				f.close()
+				fileWriteLine(self.lastfilter, self.filter)
 			self.session.deleteDialog(self.toogleHelp)
 			config.usage.on_movie_stop.value = self.movie_stop
 			config.usage.on_movie_eof.value = self.movie_eof
