@@ -27,7 +27,7 @@ from twisted.web import client, error
 
 from enigma import addFont, eConsoleAppContainer, eListboxPythonMultiContent, ePoint, eServiceReference, eSize, eTimer, getDesktop, gFont, gMainDC, iPlayableService, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, RT_HALIGN_CENTER, RT_VALIGN_CENTER, RT_WRAP
 from Components.ActionMap import ActionMap
-from Components.config import config, configfile, ConfigDirectory, ConfigSlider, ConfigSubsection, ConfigSelection, getConfigListEntry
+from Components.config import config, configfile, ConfigDirectory, getConfigListEntry, ConfigSelection, ConfigSlider, ConfigSubsection, ConfigText 
 from Components.ConfigList import ConfigListScreen
 from Components.FileList import FileList
 from Components.Harddisk import harddiskmanager
@@ -81,6 +81,7 @@ config.plugins.mp3browser.lastmp3 = ConfigSelection(default='yes', choices=[('ye
 config.plugins.mp3browser.lastfilter = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
 config.plugins.mp3browser.showfolder = ConfigSelection(default='no', choices=[('no', 'No'), ('yes', 'Yes')])
 config.plugins.mp3browser.discogs = ConfigSelection(default='show', choices=[('show', 'Show'), ('hide', 'Hide')])
+config.plugins.mp3browser.discogstoken = ConfigText(default=" ", fixed_size=False)
 config.plugins.mp3browser.font = ConfigSelection(default='yes', choices=[('yes', 'Yes'), ('no', 'No')])
 deskWidth = getDesktop(0).size().width()
 config.plugins.mp3browser.plugin_size = ConfigSelection(default='full', choices=[('full', '1280x720'), ('normal', '1024x576')])
@@ -198,7 +199,6 @@ defaultfolder_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/b
   
 addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False)
 addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
-token = "zalknVUvjOsaLdyXYSJeTKspUfcJBoxShqxgqUWp"
 
 def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args, **kwargs):
 	print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs)
@@ -1151,7 +1151,8 @@ class mp3BrowserMetrix(Screen):
 		if fileExists(discogsfile):
 			self.makePoster2()
 		elif self.findJPG:
-				url = "http://api.discogs.com/database/search?q=%s&title=%s&token=%s" % (self.artist, self.track, token)
+				url = "http://api.discogs.com/database/search?q=%s&title=%s&token=%s" % (self.artist, self.track, config.plugins.mp3browser.discogstoken.value)
+				print("[MP3BrowserMetrix][makePoster]1L ******** using token discogs")
 				callInThread(threadGetjpg, url=url, artistntrack=artistntrack, success=self.makeJpg1, fail=self.makePoster2)
 		else:
 			self.makePoster2()
@@ -1172,12 +1173,9 @@ class mp3BrowserMetrix(Screen):
 			self.posterlist[self.index] = poster = discogsfile
 			self.lastPoster = poster
 			self.lastArtist = self.artist
-#           print("[MP3BrowserMetrix][makePoster]1 poster, artistntrack",  poster, "   ", artistntrack) 
 		elif "default" in posterurl:
-#			print("[MP3BrowserMetrix][makePoster]1 found default in posterurl",  posterurl)
 			poster = defaultfolder_png if "default_folder" in posterurl else default_png
 		elif search('http', posterurl) is not None:
-#			print("[MP3BrowserMetrix][makePoster]1 found http not default in posterurl",  posterurl)        
 			callInThread(threadGetPage, url=posterurl, file=poster, success=self.getPoster, fail=self.downloadError)
 		else:
 			filename = self.mp3list[self.index]
@@ -1193,11 +1191,9 @@ class mp3BrowserMetrix(Screen):
 				f.write(poster[0].data)
 				f.close()
 				poster = posterurl
-#				print("[MP3BrowserMetrix][makePoster]1L poster",  poster)
 			else:    
 				poster = defaultfolder_png if "default_folder" in posterurl else default_png
-#               print("[MP3BrowserMetrix][makePoster]1L using default filename", filename)
-#		print("[MP3BrowserMetrix][makePoster]1 artist, lastArtist, poster, self.lastPoster, posterurl", self.artist, "   ", self.lastArtist, "   ", poster, "   ", self.lastPoster, "   ", posterurl)        
+		# print("[MP3BrowserMetrix][makePoster]1 artist, lastArtist, poster, self.lastPoster, posterurl", self.artist, "   ", self.lastArtist, "   ", poster, "   ", self.lastPoster, "   ", posterurl)        
 		if "default" in poster and self.artist == self.lastArtist:
 				poster = self.lastPoster
 		print("[MP3BrowserMetrix][makePoster]1 artist, lastArtist, poster, posterurl", self.artist, "   ", self.lastArtist, "   ", poster, "   ", posterurl)                
@@ -1207,7 +1203,6 @@ class mp3BrowserMetrix(Screen):
 
 	def getPoster(self, output, poster):
 		print("[MP3BrowserMetrix][getPoster]1 found http not default in posterurl",  posterurl)
-#		output = output.decode()
 		f = open(poster, 'wb')
 		f.write(output)
 		f.close()
@@ -1621,7 +1616,6 @@ class mp3BrowserMetrix(Screen):
 	def makeJpg1(self, output, artistntrack=None, *args, **kwargs):
 		output = output.decode()
 		artistntrack = artistntrack.replace("/", "-")
-#		if '"pages": 1' in output and "thumb":
 		if "thumb" in output:
 			print("[MP3BrowserMetrix][makeJpg1] Entered, output available")
 			titleJpeg = output.split("thumb", 1)[1].split("jpeg", 1)[0][4:] + "jpeg"
@@ -1629,7 +1623,8 @@ class mp3BrowserMetrix(Screen):
 			callInThread(threadGetjpg, url=titleJpeg, artistntrack=artistntrack, success=self.makeJpg3, fail=self.makeJpgerror)
 		else:
 			print("[MP3BrowserMetrix][makeJpg1] Left - artist/track not found, lets try artist")
-			url = "http://api.discogs.com/database/search?q=%s&token=%s" % (self.artist, token)
+			url = "http://api.discogs.com/database/search?q=%s&token=%s" % (self.artist, config.plugins.mp3browser.discogstoken.value)
+			print("[MP3BrowserMetrix][makeJpg1] ******** using token discogs")			
 			callInThread(threadGetjpg, url=url, artistntrack=artistntrack, success=self.makeJpg2, fail=self.makePoster2)
 			
 	def makeJpg2(self, output, artistntrack=None, *args, **kwargs):
@@ -3358,11 +3353,7 @@ class mp3Browser(Screen):
 					self.index = self.maxentry + self.index
 			self.paintFrame()
 			if self.infofull == True:
-#                try:
 				self.makeInfo(self.index)
-#                except IndexError as e:
-#                    print("[MP3Browser][PageUp   ] Indexerror",  e)
-
 			if self.toggle == 2:
 				self.getLyrics()
 			elif self.toggle == 3:
@@ -5160,6 +5151,7 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
 		list.append(getConfigListEntry('Plugin Transparency:', config.plugins.mp3browser.transparency))
 		list.append(getConfigListEntry('Plugin Language:', config.plugins.mp3browser.language))
 		list.append(getConfigListEntry('Show Discogs Info:', config.plugins.mp3browser.discogs))
+		list.append(getConfigListEntry('Discogs Token:', config.plugins.mp3browser.discogstoken))
 		list.append(getConfigListEntry('Coverwall Plugin Size:', config.plugins.mp3browser.plugin_size))
 		list.append(getConfigListEntry('Coverwall Info & Lyrics:', config.plugins.mp3browser.showinfo))
 		list.append(getConfigListEntry('Coverwall Headline Color:', config.plugins.mp3browser.color))
