@@ -199,6 +199,7 @@ defaultfolder_png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/b
   
 addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/Sans.ttf', 'Sans', 100, False)
 addFont('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/font/MetrixHD.ttf', 'Metrix', 100, False)
+token = "zalknVUvjOsaLdyXYSJeTKspUfcJBoxShqxgqUWp"
 
 def threadGetPage(url=None, file=None, key=None, success=None, fail=None, *args, **kwargs):
 	print('[MP3Browser][threadGetPage] url, file, key, args, kwargs', url, "   ", file, "   ", key, "   ", args, "   ", kwargs)
@@ -478,7 +479,7 @@ def databaseSort(database):
 			lines.sort(key=lambda line: line.split(':::')[9], reverse=True)
 	except IndexError as e:
 		print("[MP3Browser][databaseSort] Indexerror",  e)
-	fileWriteLines(database + '.sorted', line)
+	fileWriteLines(database + '.sorted', lines)
 	rename(database + '.sorted', database)
 
 def filterFolderSetup():
@@ -5176,6 +5177,7 @@ class mp3BrowserConfig(ConfigListScreen, Screen):
 		self.onLayoutFinish.append(self.UpdateComponents)
 
 	def UpdateComponents(self):
+		config.plugins.mp3browser.discogstoken.value = token
 		png = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/setup/' + str(config.plugins.mp3browser.style.value) + '.png'
 		if fileExists(png):
 			self['plugin'].instance.setPixmapFromFile(png)
