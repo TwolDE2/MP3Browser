@@ -1,0 +1,243 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-04 01:12+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../src/plugin.py:5204
+msgid "Artist or Artist & Track Info."
+msgstr ""
+
+#: ../src/plugin.py:5211
+msgid "Auto/No."
+msgstr ""
+
+#: ../src/plugin.py:5195
+msgid "Automatic or Yes/No"
+msgstr ""
+
+#: ../src/plugin.py:5213
+msgid "Backup Database:"
+msgstr ""
+
+#: ../src/plugin.py:5213
+msgid "Backup Yes/No."
+msgstr ""
+
+#: ../src/plugin.py:5189
+msgid "Cache Folder:"
+msgstr ""
+
+#: ../src/plugin.py:5212
+msgid "Cleanup Cache Folder:"
+msgstr ""
+
+#: ../src/plugin.py:5212
+msgid "Cleanup Yes/No."
+msgstr ""
+
+#: ../src/plugin.py:5205
+msgid "Colour."
+msgstr ""
+
+#: ../src/plugin.py:5189
+msgid "Configures destination of cache folder."
+msgstr ""
+
+#: ../src/plugin.py:5188
+msgid "Configures location of MP3 folders."
+msgstr ""
+
+#: ../src/plugin.py:5190
+msgid "Configures location of MP3browser database."
+msgstr ""
+
+#: ../src/plugin.py:5186
+msgid "Configures screen layout browser."
+msgstr ""
+
+#: ../src/plugin.py:5203
+msgid "Coverwall Headline Color:"
+msgstr ""
+
+#: ../src/plugin.py:5202
+msgid "Coverwall Info & Lyrics:"
+msgstr ""
+
+#: ../src/plugin.py:5190
+msgid "Database Folder:"
+msgstr ""
+
+#: ../src/plugin.py:5209
+msgid "Database update Yes/No."
+msgstr ""
+
+#: ../src/plugin.py:5200
+msgid "Discogs Information."
+msgstr ""
+
+#: ../src/plugin.py:5201
+msgid "Discogs Token:"
+msgstr ""
+
+#: ../src/plugin.py:5201
+msgid "Discogs search token - MUST HAVE to search."
+msgstr ""
+
+#: ../src/plugin.py:5199
+msgid "English, German etc"
+msgstr ""
+
+#: ../src/plugin.py:5208
+msgid "Font choice."
+msgstr ""
+
+#: ../src/plugin.py:5196
+msgid "Goto last MP3 on Start:"
+msgstr ""
+
+#: ../src/plugin.py:5210
+msgid "Hide Plugin during Update:"
+msgstr ""
+
+#: ../src/plugin.py:5197
+msgid "Load last Filter on Start:"
+msgstr ""
+
+#: ../src/plugin.py:5188
+msgid "MP3 Folder:"
+msgstr ""
+
+#: ../src/plugin.py:5191
+msgid "MP3 Play Mode:"
+msgstr ""
+
+#: ../src/plugin.py:5193
+msgid "MP3 Sort Order:"
+msgstr ""
+
+#: ../src/plugin.py:5172
+msgid "MP3Browser Settings"
+msgstr ""
+
+#: ../src/plugin.py:5204
+msgid "Metrix List Content:"
+msgstr ""
+
+#: ../src/plugin.py:5205
+msgid "Metrix List Selection Color:"
+msgstr ""
+
+#: ../src/plugin.py:5211
+msgid "Plugin Auto Update Check:"
+msgstr ""
+
+#: ../src/plugin.py:5199
+msgid "Plugin Language:"
+msgstr ""
+
+#: ../src/plugin.py:5208
+msgid "Plugin Sans Serif Font:"
+msgstr ""
+
+#: ../src/plugin.py:5186
+msgid "Plugin Style:"
+msgstr ""
+
+#: ../src/plugin.py:5198
+msgid "Plugin Transparency:"
+msgstr ""
+
+#: ../src/plugin.py:5207
+msgid "Plugin in Enigma Menu:"
+msgstr ""
+
+#: ../src/plugin.py:5215
+msgid "Reset Database:"
+msgstr ""
+
+#: ../src/plugin.py:5214
+msgid "Restore Database:"
+msgstr ""
+
+#: ../src/plugin.py:5214
+msgid "Restore Yes/No."
+msgstr ""
+
+#: ../src/plugin.py:5195
+msgid "Screensaver:"
+msgstr ""
+
+#: ../src/plugin.py:5202
+msgid "Set Info type."
+msgstr ""
+
+#: ../src/plugin.py:5200
+msgid "Show Discogs Info:"
+msgstr ""
+
+#: ../src/plugin.py:5206
+msgid "Show List of MP3 Folder:"
+msgstr ""
+
+#: ../src/plugin.py:5192
+msgid "Show TV in Background:"
+msgstr ""
+
+#: ../src/plugin.py:5191
+msgid "Show background or player"
+msgstr ""
+
+#: ../src/plugin.py:5207
+msgid "Show in Extensions."
+msgstr ""
+
+#: ../src/plugin.py:5194
+msgid "Shuffle MP3:"
+msgstr ""
+
+#: ../src/plugin.py:5209
+msgid "Update Database at Start:"
+msgstr ""
+
+#: ../src/plugin.py:5196
+msgid "Yes/No or Folder selection."
+msgstr ""
+
+#: ../src/plugin.py:5197 ../src/plugin.py:5198 ../src/plugin.py:5206
+#: ../src/plugin.py:5210
+msgid "Yes/No."
+msgstr ""
+
+#: ../src/plugin.py:5203
+msgid "colour."
+msgstr ""
+
+#: ../src/plugin.py:5194
+msgid "play sequential or shuffle."
+msgstr ""
+
+#: ../src/plugin.py:5215
+msgid "reset MP3Browser Database."
+msgstr ""
+
+#: ../src/plugin.py:5192
+msgid "show TV in background."
+msgstr ""
+
+#: ../src/plugin.py:5193
+msgid "sort by Artist, Genre, data etc."
+msgstr ""
