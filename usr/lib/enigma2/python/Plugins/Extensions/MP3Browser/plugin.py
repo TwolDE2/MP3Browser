@@ -12,7 +12,6 @@ from re import findall, search, split, sub, DOTALL
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from mutagen.id3 import ID3, ID3NoHeaderError, APIC, PictureType
 from mutagen.easyid3 import EasyID3
-
 from urllib.parse import unquote_plus
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -74,8 +73,8 @@ lang = language.getLanguage()[:2]
 choices = getMountChoices()
 config.plugins.mp3browser = ConfigSubsection()
 config.plugins.mp3browser.mp3folder = ConfigSelection(choices=choices, default=getMountDefault(choices))
-config.plugins.mp3browser.cachefolder = ConfigSelection(default='/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', choices=[('/media/usb/mp3browser/cache', '/media/usb'), ('/media/hdd/mp3browser/cache', '/media/hdd'), ('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', 'Default')])
-config.plugins.mp3browser.DBfolder = ConfigSelection(default='/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database', choices=[('/media/usb/mp3browser/database', '/media/usb'), ('/media/hdd/mp3browser/database', '/media/hdd'), ('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', 'Default')])
+config.plugins.mp3browser.cachefolder = ConfigSelection(default='/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', choices=[('/media/usb/mp3browser/cache', '/media/usb'), ('/media/hdd/mp3browser/cache', '/media/hdd'), ('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache', 'Flash')])
+config.plugins.mp3browser.DBfolder = ConfigSelection(default='/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database', choices=[('/media/usb/mp3browser/database', '/media/usb'), ('/media/hdd/mp3browser/database', '/media/hdd'), ('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database', 'Flash')])
 config.plugins.mp3browser.language = ConfigSelection(default='en', choices=[('en', 'English'), ('de', 'German'), ('es', 'Spanish')])
 config.plugins.mp3browser.background = ConfigSelection(default='background', choices=[('background', 'Background'), ('player', 'Media Player')])
 config.plugins.mp3browser.showtv = ConfigSelection(default='show', choices=[('show', 'Show'), ('hide', 'Hide')])
@@ -663,10 +662,11 @@ class mp3BrowserMetrix(Screen):
 		self.movie_eof = config.usage.on_movie_eof.value
 		config.usage.on_movie_stop.value = 'quit'
 		config.usage.on_movie_eof.value = 'quit'
-		self.database = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/database'
+		self.database = config.plugins.mp3browser.DBfolder.value
 		self.favorites = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
 		self.lastfilter = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/filter'
 		self.lastfile = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/last'
+		print(f"[onLayoutFinished] database:{config.plugins.mp3browser.DBfolder.value} mp3folder:{config.plugins.mp3browser.mp3folder.value}")
 		self.onLayoutFinish.append(self.onLayoutFinished)
 
 	def onLayoutFinished(self):
@@ -750,14 +750,34 @@ class mp3BrowserMetrix(Screen):
 			self.openTimer.start(500, True)
 		return
 
+	def config(self):
+		print(f"[MP3BrowserMetrix][config] **** self.ready:{self.ready}")	
+		if self.ready == True:
+			config.usage.on_movie_stop.value = self.movie_stop
+			config.usage.on_movie_eof.value = self.movie_eof
+			self.session.openWithCallback(self.checkConfig, mp3BrowserConfig)
+
 	def openInfo(self):
+		print("[MP3BrowserMetrix][checkDB] **** openInfo entered")	
 		if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
 			self.session.openWithCallback(self.databaseInitialisation_return, MessageBox, 'The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?', MessageBox.TYPE_YESNO)
 		else:
-			self.session.openWithCallback(self.databaseInitialisation, MessageBox, 'Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick\n- Change the Database Folder to your hard disk drive or usb stick.', MessageBox.TYPE_YESNO)
-			
+			self.session.openWithCallback(self.databaseInitialisation, MessageBox, 'Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.', MessageBox.TYPE_YESNO)
+
+	def checkConfig(self):
+		print("[MP3BrowserMetrix][checkConfig] **** return from Browser setup")	
+		global calledBrowser
+		if config.plugins.mp3browser.style.value != calledBrowser:
+			calledBrowser = config.plugins.mp3browser.style.value 
+			if config.plugins.mp3browser.style.value == "metrix":
+				self.session.openWithCallback(self.close, mp3BrowserMetrix, 0, ':::')
+			else:
+				self.session.openWithCallback(self.close, mp3Browser, 0, ':::')
+		else:
+			self.databaseUpdate()	
+
 	def checkDB(self):
-		print("[MP3Browser][checkDB] **** return from Browser setup")	
+		print("[MP3BrowserMetrix][checkDB] **** return from Browser setup")	
 		global calledBrowser
 		if config.plugins.mp3browser.style.value != calledBrowser:
 			calledBrowser = config.plugins.mp3browser.style.value 
@@ -769,16 +789,18 @@ class mp3BrowserMetrix(Screen):
 			self.databaseUpdate()	
 
 	def databaseInitialisation(self, answer):
+		print(f"[MP3BrowserMetrix][databaseInitialisation] **** entered answer:{answer}")	
+		open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
+		config.usage.on_movie_stop.value = self.movie_stop
+		config.usage.on_movie_eof.value = self.movie_eof
+		print("[MP3BrowserMetrix][databaseInitialisation] **** entry to Browser setup")		
 		if answer is True:
-			open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
-			config.usage.on_movie_stop.value = self.movie_stop
-			config.usage.on_movie_eof.value = self.movie_eof
-			print("[MP3Browser][databaseInitialisation] **** entry to Browser setup")		
 			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
 		else:
-			self.close()
+			self.databaseInitialisation_return(True)
 
 	def databaseInitialisation_return(self, answer):
+		print(f"[MP3BrowserMetrix][databaseInitialisation_return] **** entered answer:{answer}")
 		if answer is True:
 			self.reset = True
 			if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
@@ -788,12 +810,10 @@ class mp3BrowserMetrix(Screen):
 			self.resetTimer = eTimer()
 			self.resetTimer.callback.append(self.databaseUpdate_return(True))
 			self.resetTimer.start(500, True)
-		else:
-			self.close()
 
 
 	def databaseUpdate(self):
-		print("[MP3Browser][databaseInitialisation] **** return from Browser setup or Initialisation")	
+		print(f"[MP3BrowserMetrix][databaseUpdate] **** entered")
 		if self.ready == True:
 			if path.exists(config.plugins.mp3browser.mp3folder.value) and path.exists(config.plugins.mp3browser.cachefolder.value):
 				self.session.openWithCallback(self.databaseUpdate_return, MessageBox, '\nUpdate MP3 Browser Database?', MessageBox.TYPE_YESNO)
@@ -808,13 +828,43 @@ class mp3BrowserMetrix(Screen):
 			if self.mp3list:
 				mp3 = self.mp3list[self.index]
 				fileWriteLine(self.lastfile, mp3)
+			if fileExists(self.database):
+				self.runTimer = eTimer()
+				self.runTimer.callback.append(self.databaseUpdate_run)
+				self.runTimer.start(500, True)
+
+	def databaseUpdate_run(self):
+		if config.plugins.mp3browser.hideupdate.value == 'yes':
+			self.hideScreen()
+		if self.fav == True:
+			self.fav = False
+			self.database = config.plugins.mp3browser.DBfolder.value
+		returnValue, orphaned, dbcountmax = databaseUpdate_core(self.database)
+		if not returnValue:		
+			self.databaseUpdate_finished(False, False, 0)
+		else:
+			databaseSort(self.database)
+			if self.reset == True:
+				if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
+					self.hideScreen()
+				self.session.openWithCallback(self.exit, mp3BrowserMetrix, 0, ':::')
+			else:
+				self.databaseUpdate_finished(True, orphaned, dbcountmax)
+		return
+
+	def databaseUpdate_return(self, answer):
+		if answer is True:
+			self.ready = False
+			if self.mp3list:
+				mp3 = self.mp3list[self.index]
+				fileWriteLine(self.lastfile, mp3)
 		if fileExists(self.database):
 				self.runTimer = eTimer()
 				self.runTimer.callback.append(self.databaseUpdate_run)
 				self.runTimer.start(500, True)
 
 	def databaseUpdate_run(self):
-		print("[MP3Browser][databaseUpdate_run]") 
+		print("[MP3BrowserMetrix][databaseUpdate_run]") 
 		if config.plugins.mp3browser.hideupdate.value == 'yes':
 			self.hideScreen()
 		if self.fav == True:
@@ -834,7 +884,7 @@ class mp3BrowserMetrix(Screen):
 		return
 
 	def databaseUpdate_finished(self, found, orphaned, dbcountmax):
-		print("[MP3Browser][databaseUpdate_finished]")     
+		print("[MP3BrowserMetrix][databaseUpdate_finished]")     
 		if config.plugins.mp3browser.hideupdate.value == 'yes' and self.hideflag == False:
 			self.hideScreen()
 		mp3 = fileReadLine(self.lastfile)
@@ -2223,6 +2273,7 @@ class mp3Browser(Screen):
 		self.favorites = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/favorites'
 		self.lastfilter = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/filter'
 		self.lastfile = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/last'
+		print(f"[onLayoutFinished] database:{config.plugins.mp3browser.DBfolder.value} mp3folder:{config.plugins.mp3browser.mp3folder.value}")
 		self.onLayoutFinish.append(self.onLayoutFinished)
 
 	def onLayoutFinished(self):
@@ -2280,36 +2331,57 @@ class mp3Browser(Screen):
 			self.openTimer.start(500, True)
 		return
 
+	def config(self):
+		print(f"[MP3Browser][config] **** self.ready:{self.ready}")	
+		if self.ready == True:
+			config.usage.on_movie_stop.value = self.movie_stop
+			config.usage.on_movie_eof.value = self.movie_eof
+			self.session.openWithCallback(self.checkConfig, mp3BrowserConfig)
+
 	def openInfo(self):
+		print("[MP3Browser][checkDB] **** openInfo entered")	
 		if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
 			self.session.openWithCallback(self.databaseInitialisation_return, MessageBox, 'The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?', MessageBox.TYPE_YESNO)
 		else:
 			self.session.openWithCallback(self.databaseInitialisation, MessageBox, 'Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.', MessageBox.TYPE_YESNO)
 
-	def checkDB(self):
-		print("[MP3Browser][checkDB] **** return from Browser setup")	
+	def checkConfig(self):
+		print("[MP3Browser][checkConfig] **** return from Browser setup")	
 		global calledBrowser
 		if config.plugins.mp3browser.style.value != calledBrowser:
-			calledBrowser = config.plugins.mp3browser.style.value		
+			calledBrowser = config.plugins.mp3browser.style.value 
 			if config.plugins.mp3browser.style.value == "metrix":
 				self.session.openWithCallback(self.close, mp3BrowserMetrix, 0, ':::')
 			else:
 				self.session.openWithCallback(self.close, mp3Browser, 0, ':::')
 		else:
-			self.databaseUpdate()
+			self.databaseUpdate()	
+
+	def checkDB(self):
+		print("[MP3Browser][checkDB] **** return from Browser setup")	
+		global calledBrowser
+		if config.plugins.mp3browser.style.value != calledBrowser:
+			calledBrowser = config.plugins.mp3browser.style.value 
+			if config.plugins.mp3browser.style.value == "metrix":
+				self.session.openWithCallback(self.close, mp3BrowserMetrix, 0, ':::')
+			else:
+				self.session.openWithCallback(self.close, mp3Browser, 0, ':::')
+		else:
+			self.databaseUpdate()	
 
 	def databaseInitialisation(self, answer):
+		print(f"[MP3Browser][databaseInitialisation] **** entered answer:{answer}")	
+		open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
+		config.usage.on_movie_stop.value = self.movie_stop
+		config.usage.on_movie_eof.value = self.movie_eof
+		print("[MP3Browser][databaseInitialisation] **** entry to Browser setup")		
 		if answer is True:
-			open('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset', 'w').close()
-			config.usage.on_movie_stop.value = self.movie_stop
-			config.usage.on_movie_eof.value = self.movie_eof
-			print("[MP3Browser][databaseInitialisation] **** entry to Browser setup")			
 			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
-			print("[MP3Browser][databaseInitialisation] **** return from Browser setup")
 		else:
-			self.close()
+			self.databaseInitialisation_return(True)
 
 	def databaseInitialisation_return(self, answer):
+		print(f"[MP3Browser][databaseInitialisation_return] **** entered answer:{answer}")
 		if answer is True:
 			self.reset = True
 			if fileExists('/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset'):
@@ -2319,12 +2391,10 @@ class mp3Browser(Screen):
 			self.resetTimer = eTimer()
 			self.resetTimer.callback.append(self.databaseUpdate_return(True))
 			self.resetTimer.start(500, True)
-		else:
-			self.close()
 
 
 	def databaseUpdate(self):
-		print("[MP3Browser][databaseInitialisation] **** return from Browser setup or Initialisation")
+		print(f"[MP3Browser][databaseUpdate] **** entered")
 		if self.ready == True:
 			if path.exists(config.plugins.mp3browser.mp3folder.value) and path.exists(config.plugins.mp3browser.cachefolder.value):
 				self.session.openWithCallback(self.databaseUpdate_return, MessageBox, '\nUpdate MP3 Browser Database?', MessageBox.TYPE_YESNO)
@@ -3484,12 +3554,6 @@ class mp3Browser(Screen):
 
 	def downloadError(self, output):
 		self.ready = True
-
-	def config(self):
-		if self.ready == True:
-			config.usage.on_movie_stop.value = self.movie_stop
-			config.usage.on_movie_eof.value = self.movie_eof
-			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
 
 	def zap(self):
 		servicelist = self.session.instantiateDialog(ChannelSelection)
@@ -5108,8 +5172,8 @@ class mp3BrowserConfig(Setup):
 		print("[MP3Browser][mp3BrowserConfig]createSetup entered")			
 		self.sortorder = config.plugins.mp3browser.sortorder.value
 		self.mp3folder = config.plugins.mp3browser.mp3folder.value
-		if not fileExists(config.plugins.mp3browser.cachefolder.value):
-			config.plugins.mp3browser.cachefolder.value = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache'            
+		# if not fileExists(config.plugins.mp3browser.cachefolder.value):
+		#	config.plugins.mp3browser.cachefolder.value = '/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/cache'            
 		self.cachefolder = config.plugins.mp3browser.cachefolder.value
 		self.database = config.plugins.mp3browser.DBfolder.value
 		self.lang = config.plugins.mp3browser.language.value
