@@ -5,6 +5,8 @@
 # To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/3.0/
 # or send a letter to CreativeCommons, 559 Nathan Abbott Way, Stanford, California 94305, USA
 
+from . import _
+
 from os import linesep, makedirs, remove, rename, rmdir, statvfs, walk
 from os.path import exists, getsize, join, normpath
 import datetime, socket, time
