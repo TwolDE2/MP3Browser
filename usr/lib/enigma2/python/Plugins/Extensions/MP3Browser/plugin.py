@@ -2026,7 +2026,7 @@ class mp3BrowserMetrix(Screen):
 		if self.ready == True:
 			config.usage.on_movie_stop.value = self.movie_stop
 			config.usage.on_movie_eof.value = self.movie_eof
-			print("[MP3Browser][databaseInitialisation] **** call to Browser setup or Initialisation")			
+			print("[MP3Browser][databaseInitialisation] **** call to Browser setup or Initialisation")
 			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
 
 	def zap(self):
@@ -5169,7 +5169,7 @@ class mp3BrowserConfig(Setup):
 		self.createSetup()
 		
 	def createSetup(self):
-		print("[MP3Browser][mp3BrowserConfig]createSetup entered")			
+		print("[MP3Browser][mp3BrowserConfig]createSetup entered")
 		self.sortorder = config.plugins.mp3browser.sortorder.value
 		self.mp3folder = config.plugins.mp3browser.mp3folder.value
 		# if not fileExists(config.plugins.mp3browser.cachefolder.value):
@@ -5213,12 +5213,12 @@ class mp3BrowserConfig(Setup):
 
 		
 	def layoutFinished(self):
-		print("[MP3Browser][mp3BrowserConfig]layoutFinished entered")	
+		print("[MP3Browser][mp3BrowserConfig]layoutFinished entered")
 		Setup.layoutFinished(self)
 		self.UpdateComponents()
 
 	def selectionChanged(self):
-		print("[MP3Browser][mp3BrowserConfig]selectionChanged entered")	
+		print("[MP3Browser][mp3BrowserConfig]selectionChanged entered")
 		Setup.selectionChanged(self)
 		self.UpdateComponents()
 
@@ -5228,7 +5228,7 @@ class mp3BrowserConfig(Setup):
 		self.UpdateComponents()
 
 	def keyCancel(self):
-		print("[MP3Browser][mp3BrowserConfig]keyCancel entered")	
+		print("[MP3Browser][mp3BrowserConfig]keyCancel entered")
 		Setup.keyCancel(self)
 		self.UpdateComponents()
 
@@ -5257,9 +5257,9 @@ class mp3BrowserConfig(Setup):
 				self.container.execute("mkdir -p '%s' && cp -r '%s' '%s' && rm -rf '%s'" % (config.plugins.mp3browser.cachefolder.value, self.cachefolder, newcache, self.cachefolder))
 				self.cachefolder = config.plugins.mp3browser.cachefolder.value
 				config.plugins.mp3browser.cachefolder.save()
-			print("[MP3Browser][mp3BrowserConfig]save ---> keySave entered")			
+			print("[MP3Browser][mp3BrowserConfig]save ---> keySave entered")
 		Setup.keySave(self)
-		self.UpdateComponents()		
+		self.UpdateComponents()
 
 	def UpdateComponents(self):
 		current = self["config"].getCurrent()
