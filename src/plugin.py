@@ -337,24 +337,28 @@ def databaseUpdate_core(MP3Database):
 							except (HeaderNotFoundError, ID3NoHeaderError) as e:
 								print("[MP3Browser][databaseUpdate_run]1b ID3 Header notfound",  e) 
 							if len(poster) > 0:
-								mime = poster[0].mime
-								if mime.lower().endswith("png"):
-									ext = ".png"
-								else:
-									ext = ".jpg"
-								artistTrue = artist.split("/")[0]
-								if not exists(join(config.plugins.mp3browser.cachefolder.value, artistTrue)):
-									makedirs(join(config.plugins.mp3browser.cachefolder.value, artistTrue))
-								posterurl = join(config.plugins.mp3browser.cachefolder.value, artistntrack + ext)
 								try:
-									with open(posterurl, "wb")as fd:
-										fd.write(poster[0].data)
+									mime = poster[0].mime
+									if mime.lower().endswith('png'):
+										ext = '.png'
+									else:
+										ext = '.jpg'
+									artistTrue = artist.split("/")[0]
+									if not exists("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue"):
+										makedirs("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue")
+									posterurl = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ext
+									try:
+										with open(posterurl, 'wb')as fd:
+											fd.write(poster[0].data)
+									except Exception as err:
+										print(f"[MP3Browser][databaseUpdate_run] file write crash as err:{err}")	
+									lastArtist = artist
+									lastPoster = poster[0].data
+									lastPosterUrl = posterurl
+									pngjpeg = mime 
 								except Exception as err:
-									print(f"[MP3Browser][databaseUpdate_run] file write crash as err:{err}")	
-								lastArtist = artist
-								lastPoster = poster[0].data
-								lastPosterUrl = posterurl                                
-								pngjpeg = mime 
+									print(f"[MP3Browser][databaseUpdate_run] no mime err:{err}")
+									pass
 							else:
 								if artist == lastArtist:
 									posterurl = lastPosterUrl
@@ -405,47 +409,48 @@ def databaseUpdate_core(MP3Database):
 
 def databaseSort(database):
 	sortorder = config.plugins.mp3browser.sortorder.value
-	# print(f"[MP3Browser][databaseSort] sortorder:{sortorder}, database:{database}")
 	lines = fileReadLines(database)
-	if sortorder == "artist":
-		newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[3].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
-	elif sortorder == "artist_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[3].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
-	elif sortorder == "album":
-		 newLinesSort = sorted(lines, key=lambda line: line.split(":::")[5].zfill(2))
-		 newLinesSorted = sorted(newLinesSort, key=lambda line: line.split(":::")[4].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
-	elif sortorder == "album_reverse":
-		 newLinesSort = sorted(lines, key=lambda line: line.split(":::")[5].zfill(2))
-		 newLinesSorted = sorted(newLinesSort, key=lambda line: line.split(":::")[4].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
-	elif sortorder == "track":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[6].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
-	elif sortorder == "track_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[6].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
-	elif sortorder == "genre":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[8])
-	elif sortorder == "genre_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[8], reverse=True)
-	elif sortorder == "year":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[7])
-	elif sortorder == "year_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[7], reverse=True)
-	elif sortorder == "date":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[2])
-	elif sortorder == "date_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[2], reverse=True)
-	elif sortorder == "folder":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[1])
-	elif sortorder == "folder_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[1], reverse=True)
-	elif sortorder == "runtime":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[9])
-	elif sortorder == "runtime_reverse":
-		 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[9], reverse=True)
-	fileWriteLines(database + ".sorted", newLinesSorted)
-	# copyfile(database + ".sorted", database)
-	# remove(database + ".sorted")
-	rename(database + ".sorted", database)	
-	# print(f"[MP3Browser][databaseSort] 2 database.sorted:")
+	print(f"[MP3Browser][databaseSort] sortorder:{sortorder}, database:{database} lengthlines:{len(lines)}")
+	if len(lines) != 0:
+		if sortorder == "artist":
+			newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[3].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
+		elif sortorder == "artist_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[3].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
+		elif sortorder == "album":
+			 newLinesSort = sorted(lines, key=lambda line: line.split(":::")[5].zfill(2))
+			 newLinesSorted = sorted(newLinesSort, key=lambda line: line.split(":::")[4].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
+		elif sortorder == "album_reverse":
+			 newLinesSort = sorted(lines, key=lambda line: line.split(":::")[5].zfill(2))
+			 newLinesSorted = sorted(newLinesSort, key=lambda line: line.split(":::")[4].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
+		elif sortorder == "track":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[6].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower())
+		elif sortorder == "track_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[6].replace("The ", "").replace("Der ", "").replace("Die ", "").replace("Das ", "").lower(), reverse=True)
+		elif sortorder == "genre":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[8])
+		elif sortorder == "genre_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[8], reverse=True)
+		elif sortorder == "year":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[7])
+		elif sortorder == "year_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[7], reverse=True)
+		elif sortorder == "date":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[2])
+		elif sortorder == "date_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[2], reverse=True)
+		elif sortorder == "folder":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[1])
+		elif sortorder == "folder_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[1], reverse=True)
+		elif sortorder == "runtime":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[9])
+		elif sortorder == "runtime_reverse":
+			 newLinesSorted = sorted(lines, key=lambda line: line.split(":::")[9], reverse=True)
+		fileWriteLines(database + ".sorted", newLinesSorted)
+		# copyfile(database + ".sorted", database)
+		# remove(database + ".sorted")
+		rename(database + ".sorted", database)	
+		# print(f"[MP3Browser][databaseSort] 2 database.sorted:")
 
 def filterFolderSetup():
 	max = 25
@@ -554,7 +559,8 @@ class mp3BrowserMetrix(Screen):
 		self.showhelp = False
 		self.hideflag = True
 		self.fav = False
-		self.ready = False
+		self.ready = False		# config defined
+		self.reset = False		# databse initialised
 		self.autoupdate = False
 		self.filter = filter
 		self.index = index
@@ -744,7 +750,7 @@ class mp3BrowserMetrix(Screen):
 			print(f"[onLayoutFinished] mp3folder is :{config.plugins.mp3browser.mp3folder.value}")
 			if config.plugins.mp3browser.autoupdate.value == "yes" and exists(config.plugins.mp3browser.mp3folder.value):
 				self.autoupdate = True
-				self.makeMP3BrowserTimer.callback.append(self.databaseUpdate_return(True))
+				self.makeMP3BrowserTimer.callback.append(self.databaseUpdate_queryreturn(True))
 			else:
 				self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 			self.makeMP3BrowserTimer.start(500, True)
@@ -764,7 +770,7 @@ class mp3BrowserMetrix(Screen):
 	def openInfo(self):
 		print("[MP3BrowserMetrix][checkDB] **** openInfo entered")	
 		if fileExists("/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset"):
-			self.session.openWithCallback(self.databaseInitialisation_return, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
 		else:
 			self.session.openWithCallback(self.databaseInitialisation, MessageBox, "Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.", MessageBox.TYPE_YESNO)
 
@@ -778,6 +784,7 @@ class mp3BrowserMetrix(Screen):
 			else:
 				self.session.openWithCallback(self.close, mp3Browser, 0, ":::")
 		else:
+			self.ready = True
 			self.databaseUpdate()	
 
 	def checkDB(self):
@@ -790,6 +797,7 @@ class mp3BrowserMetrix(Screen):
 			else:
 				self.session.openWithCallback(self.close, mp3Browser, 0, ":::")
 		else:
+			self.ready = True
 			self.databaseUpdate()	
 
 	def databaseInitialisation(self, answer):
@@ -801,9 +809,9 @@ class mp3BrowserMetrix(Screen):
 		if answer is True:
 			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
 		else:
-			self.databaseInitialisation_return(True)
+			self.databaseInitialisation_queryreturn(True)
 
-	def databaseInitialisation_return(self, answer):
+	def databaseInitialisation_queryreturn(self, answer):
 		print(f"[MP3BrowserMetrix][databaseInitialisation_return] **** entered answer:{answer}")
 		if answer is True:
 			self.reset = True
@@ -812,7 +820,7 @@ class mp3BrowserMetrix(Screen):
 			open(self.database, "w").close()
 			self.makeMP3BrowserTimer = eTimer()
 			self.resetTimer = eTimer()
-			self.resetTimer.callback.append(self.databaseUpdate_return(True))
+			self.resetTimer.callback.append(self.databaseUpdate_queryreturn(True))
 			self.resetTimer.start(500, True)
 
 
@@ -820,18 +828,20 @@ class mp3BrowserMetrix(Screen):
 		print(f"[MP3BrowserMetrix][databaseUpdate] **** entered")
 		if self.ready == True:
 			if exists(config.plugins.mp3browser.mp3folder.value) and exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.openWithCallback(self.databaseUpdate_return, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
+				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
 			elif exists(config.plugins.mp3browser.cachefolder.value):
 				self.session.open(MessageBox, "\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
 			else:
 				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
 
-	def databaseUpdate_return(self, answer):
+	def databaseUpdate_queryreturn(self, answer):
 		if answer is True:
 			self.ready = False
 			if self.mp3list:
 				mp3 = self.mp3list[self.index]
 				fileWriteLine(self.lastfile, mp3)
+			if not fileExists(self.database):
+				open(self.database, "w").close()
 			if fileExists(self.database):
 				self.runTimer = eTimer()
 				self.runTimer.callback.append(self.databaseUpdate_run)
@@ -845,40 +855,10 @@ class mp3BrowserMetrix(Screen):
 			self.database = config.plugins.mp3browser.DBfolder.value
 		returnValue, orphaned, dbcountmax = databaseUpdate_core(self.database)
 		if not returnValue:		
-			self.databaseUpdate_finished(False, False, 0)
+			self.databaseUpdate_finished(False, 0, 0)
 		else:
-			databaseSort(self.database)
-			if self.reset == True:
-				if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
-					self.hideScreen()
-				self.session.openWithCallback(self.exit, mp3BrowserMetrix, 0, ":::")
-			else:
-				self.databaseUpdate_finished(True, orphaned, dbcountmax)
-		return
-
-	def databaseUpdate_return(self, answer):
-		if answer is True:
-			self.ready = False
-			if self.mp3list:
-				mp3 = self.mp3list[self.index]
-				fileWriteLine(self.lastfile, mp3)
-		if fileExists(self.database):
-				self.runTimer = eTimer()
-				self.runTimer.callback.append(self.databaseUpdate_run)
-				self.runTimer.start(500, True)
-
-	def databaseUpdate_run(self):
-		print("[MP3BrowserMetrix][databaseUpdate_run]") 
-		if config.plugins.mp3browser.hideupdate.value == "yes":
-			self.hideScreen()
-		if self.fav == True:
-			self.fav = False
-			self.database = config.plugins.mp3browser.DBfolder.value
-		returnValue, orphaned, dbcountmax = databaseUpdate_core(self.database)
-		databaseSort(self.database)
-		if not returnValue:		
-			self.databaseUpdate_finished(False, False, 0)
-		else:
+			if dbcountmax !=0:
+				databaseSort(self.database)
 			if self.reset == True:
 				if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
 					self.hideScreen()
@@ -2151,7 +2131,8 @@ class mp3Browser(Screen):
 		self.showhelp = False
 		self.hideflag = True
 		self.fav = False
-		self.ready = False
+		self.ready = False		# config defined
+		self.reset = False		# databse initialised
 		self.autoupdate = False
 		self.filter = filter
 		self.index = index
@@ -2325,7 +2306,7 @@ class mp3Browser(Screen):
 			print(f"[onLayoutFinished] mp3folder is :{config.plugins.mp3browser.mp3folder}")
 			if config.plugins.mp3browser.autoupdate.value == "yes" and exists(config.plugins.mp3browser.mp3folder.value):
 				self.autoupdate = True
-				self.makeMP3BrowserTimer.callback.append(self.databaseUpdate_return(True))
+				self.makeMP3BrowserTimer.callback.append(self.databaseUpdate_queryreturn(True))
 			else:
 				self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 			self.makeMP3BrowserTimer.start(500, True)
@@ -2345,7 +2326,7 @@ class mp3Browser(Screen):
 	def openInfo(self):
 		print("[MP3Browser][checkDB] **** openInfo entered")	
 		if fileExists("/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset"):
-			self.session.openWithCallback(self.databaseInitialisation_return, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
 		else:
 			self.session.openWithCallback(self.databaseInitialisation, MessageBox, "Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.", MessageBox.TYPE_YESNO)
 
@@ -2359,6 +2340,7 @@ class mp3Browser(Screen):
 			else:
 				self.session.openWithCallback(self.close, mp3Browser, 0, ":::")
 		else:
+			self.ready = True
 			self.databaseUpdate()	
 
 	def checkDB(self):
@@ -2371,6 +2353,7 @@ class mp3Browser(Screen):
 			else:
 				self.session.openWithCallback(self.close, mp3Browser, 0, ":::")
 		else:
+			self.ready = True
 			self.databaseUpdate()	
 
 	def databaseInitialisation(self, answer):
@@ -2382,9 +2365,9 @@ class mp3Browser(Screen):
 		if answer is True:
 			self.session.openWithCallback(self.checkDB, mp3BrowserConfig)
 		else:
-			self.databaseInitialisation_return(True)
+			self.databaseInitialisation_queryreturn(True)
 
-	def databaseInitialisation_return(self, answer):
+	def databaseInitialisation_queryreturn(self, answer):
 		print(f"[MP3Browser][databaseInitialisation_return] **** entered answer:{answer}")
 		if answer is True:
 			self.reset = True
@@ -2393,7 +2376,7 @@ class mp3Browser(Screen):
 			open(self.database, "w").close()
 			self.makeMP3BrowserTimer = eTimer()
 			self.resetTimer = eTimer()
-			self.resetTimer.callback.append(self.databaseUpdate_return(True))
+			self.resetTimer.callback.append(self.databaseUpdate_queryreturn(True))
 			self.resetTimer.start(500, True)
 
 
@@ -2401,13 +2384,13 @@ class mp3Browser(Screen):
 		print(f"[MP3Browser][databaseUpdate] **** entered")
 		if self.ready == True:
 			if exists(config.plugins.mp3browser.mp3folder.value) and exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.openWithCallback(self.databaseUpdate_return, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
+				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
 			elif exists(config.plugins.mp3browser.cachefolder.value):
 				self.session.open(MessageBox, "\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
 			else:
 				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
 
-	def databaseUpdate_return(self, answer):
+	def databaseUpdate_queryreturn(self, answer):
 		if answer is True:
 			self.ready = False
 			if self.mp3list:
@@ -2426,9 +2409,10 @@ class mp3Browser(Screen):
 			self.database = config.plugins.mp3browser.DBfolder.value
 		returnValue, orphaned, dbcountmax = databaseUpdate_core(self.database)
 		if not returnValue:		
-			self.databaseUpdate_finished(False, False, 0)
+			self.databaseUpdate_finished(False, 0, 0)
 		else:
-			databaseSort(self.database)
+			if dbcountmax != 0:
+				databaseSort(self.database)
 			if self.reset == True:
 				if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
 					self.hideScreen()
@@ -5181,7 +5165,7 @@ class mp3BrowserConfig(Setup):
 		self.cachefolder = config.plugins.mp3browser.cachefolder.value
 		self.database = config.plugins.mp3browser.DBfolder.value
 		self.lang = config.plugins.mp3browser.language.value
-		self.ready = True
+		self.ready = False
 		self.list = [
 			getConfigListEntry(_("Plugin Style:"), config.plugins.mp3browser.style, _("Configures screen layout browser."))
 		]
@@ -5244,12 +5228,13 @@ class mp3BrowserConfig(Setup):
 			Setup.keySave(self)
 
 	def keySave(self):
-		print("[MP3Browser][mp3BrowserConfig]keySave entered")
-		if self.ready == True:
-			self.ready = False
-			if config.plugins.mp3browser.sortorder.value != self.sortorder:
-				if fileExists(self.database):
-					databaseSort(self.database)
+		current = self["config"].getCurrent()
+		print(f"[MP3Browser][mp3BrowserConfig]keySave entered self.ready{self.ready}")
+		Setup.keySave(self)
+		if self.ready == False:
+			self.ready = True
+			if current[0] == "MP3 Sort Order:" and fileExists(self.database):
+				databaseSort(self.database)
 			if config.plugins.mp3browser.reset.value == "yes":
 				open("/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset", "w").close()
 				config.plugins.mp3browser.reset.value = "no"
@@ -5261,9 +5246,7 @@ class mp3BrowserConfig(Setup):
 				self.container.execute("mkdir -p '%s' && cp -r '%s' '%s' && rm -rf '%s'" % (config.plugins.mp3browser.cachefolder.value, self.cachefolder, newcache, self.cachefolder))
 				self.cachefolder = config.plugins.mp3browser.cachefolder.value
 				config.plugins.mp3browser.cachefolder.save()
-			print("[MP3Browser][mp3BrowserConfig]save ---> keySave entered")
-		Setup.keySave(self)
-		self.UpdateComponents()
+			print("[MP3Browser][mp3BrowserConfig]save ---> Setup.keySave entered")
 
 	def UpdateComponents(self):
 		current = self["config"].getCurrent()
