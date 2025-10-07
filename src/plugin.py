@@ -53,6 +53,7 @@ from Screens.Screen import Screen
 from Screens.Setup import Setup
 from Screens.Standby import TryQuitMainloop
 from Screens.VirtualKeyBoard import VirtualKeyBoard
+from Session import SessionObject
 from skin import applySkinFactor, fonts, parameters
 from Tools.Directories import copyfile, fileExists, fileReadLine, fileReadLines, fileWriteLine, fileWriteLines
 
@@ -5218,7 +5219,6 @@ class mp3BrowserConfig(Setup):
 	def keyCancel(self):
 		print("[MP3Browser][mp3BrowserConfig]keyCancel entered")
 		Setup.keyCancel(self)
-		self.UpdateComponents()
 
 	def confirm(self, confirmed):
 		print("[MP3Browser][mp3BrowserConfig]confirmed entered")
@@ -5264,21 +5264,21 @@ class mp3BrowserConfig(Setup):
 						print("[MP3Browser][UpdateComponents] OSEerror",  e)
 
 					fileWriteLine(self.cachefolder + "/backup/database", "data")
-					self.session.open(MessageBox, "\nDatabase backuped to %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
+					SessionObject().session.open(MessageBox, "\nDatabase backuped to %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					self.session.open(MessageBox, "\nDatabase %s not found:\nMP3 Browser Database Backup canceled." % str(self.database), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, "\nDatabase %s not found:\nMP3 Browser Database Backup canceled." % str(self.database), MessageBox.TYPE_ERROR)
 			else:
-				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Backup canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Backup canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		elif current[0] == "Restore Database:":
 			if exists(self.cachefolder):
 				if fileExists(self.cachefolder + "/backup/database"):
 					data = fileReadLine(self.cachefolder + "/backup/database")
 					fileWriteLine(self.database, "data")
-					self.session.open(MessageBox, "\nDatabase restored from %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
+					SessionObject().session.open(MessageBox, "\nDatabase restored from %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					self.session.open(MessageBox, "\nDatabase Backup %s not found:\nMP3 Browser Database Restore canceled." % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, "\nDatabase Backup %s not found:\nMP3 Browser Database Restore canceled." % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_ERROR)
 			else:
-				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Restore canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Restore canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		elif current[0] == "Cleanup Cache Folder:":
 			if exists(self.cachefolder):
 				if fileExists(self.database):
@@ -5298,13 +5298,13 @@ class mp3BrowserConfig(Setup):
 
 					del data
 					if count == 0:
-						self.session.open(MessageBox, "\nNo orphaned Covers, Lyrics or Discogs Infos found:\nYour Cache Folder is clean.", MessageBox.TYPE_INFO, close_on_any_key=True)
+						SessionObject().session.open(MessageBox, "\nNo orphaned Covers, Lyrics or Discogs Infos found:\nYour Cache Folder is clean.", MessageBox.TYPE_INFO, close_on_any_key=True)
 					else:
-						self.session.open(MessageBox, "\nCleanup Cache Folder finished:\n%s orphaned Covers, Lyrics or Discogs Infos removed." % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
+						SessionObject().session.open(MessageBox, "\nCleanup Cache Folder finished:\n%s orphaned Covers, Lyrics or Discogs Infos removed." % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					self.session.open(MessageBox, "\nDatabase %s not found:\nCleanup Cache Folder canceled." % str(self.database), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, "\nDatabase %s not found:\nCleanup Cache Folder canceled." % str(self.database), MessageBox.TYPE_ERROR)
 			else:
-				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nCleanup Cache Folder canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nCleanup Cache Folder canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		return
 
 
