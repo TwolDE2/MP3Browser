@@ -5,8 +5,6 @@
 # To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/3.0/
 # or send a letter to CreativeCommons, 559 Nathan Abbott Way, Stanford, California 94305, USA
 
-from . import _
-
 from os import linesep, makedirs, remove, rename, rmdir, statvfs, walk
 from os.path import exists, getsize, join, normpath
 import datetime, socket, time
@@ -16,6 +14,7 @@ from re import findall, search, split, sub, DOTALL
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from mutagen.id3 import ID3, ID3NoHeaderError, APIC, PictureType
 from mutagen.easyid3 import EasyID3
+print(f"[mp3browser] ************* {EasyID3.valid_keys.keys()}")
 
 from urllib.parse import unquote_plus
 from urllib.request import Request, urlopen
@@ -247,6 +246,7 @@ def transDISCOGS(text):
 	return text
 
 def databaseUpdate_core(MP3Database):
+	print(f"[MP3Browser][databaseUpdate_core] entered MP3Database:{MP3Database}")
 	nameList = []
 	mp3List = []
 	dateList = []
@@ -264,38 +264,41 @@ def databaseUpdate_core(MP3Database):
 	lastPoster = ""
 	lastPosterUrl = ""
 	pngjpeg = ""
-	data = fileReadLine(MP3Database)
-	allfiles = ":::"
+	mp3browserData = fileReadLine(MP3Database)
+	inputMP3files = ":::"
 	folder = config.plugins.mp3browser.mp3folder.value
 	for root, dirs, files in walk(folder, topdown=False, onerror=None, followlinks=True):
 		for name in files:
 			if name.lower().endswith(".mp3"):
+				# print(f"[MP3Browser][databaseUpdate_core] mp3 name:{name}")
 				if search(r"[\uD800-\uDFFF]", name) is not None:
 					name = name.encode("utf-8").decode("latin-1").encode("utf-8").decode("utf-8")	
 				filename = join(root, name)
-				allfiles = allfiles + filename + ":::"
+				inputMP3files = inputMP3files + filename + ":::"
 				mp3 = sub("\\(|\\)|\\[|\\]|\\+|\\?", ".", name)
-				if search(mp3, data) is None:				 # do we have this name in database?
-					if name.lower().endswith(".mp3"):		 # is it mp3?
-						mp3List.append(filename)		 # file name in input source DB
+				if search(mp3, mp3browserData) is None:				 # do we have this name in MP3browser database?
+					if name.lower().endswith(".mp3"):		 # if not is it mp3?
+						mp3List.append(filename)		 # file name in input source DB, add to output mp3list
 						dateList.append(str(datetime.datetime.now()))
 						name = sub("\\.mp3|\\.MP3", "", name)
 						nameList.append(name)
-						audio = None
+						tag = None
 						artist = album = number = track = year = genre = runtime = bitrate = " "
+						print(f"[MP3Browser][databaseUpdate_core] mp3 name:{name} filename:{filename}")
 						try:
-							audio = MP3(filename, ID3=EasyID3)
-							if audio is not None:
-								album = audio.get("album", ["n/a"])[0]
-								artist = audio.get("artist", ["n/a"])[0]
-								number = audio.get("tracknumber", ["n/a"])[0].split("/")[0]
-								track = audio.get("title", [name])[0]
-								genre = audio.get("genre", ["n/a"])[0]
-								year = audio.get("date", ["n/a"])[0]
-								runtime = str(datetime.timedelta(seconds=int(audio.info.length)))
-								bitrate = str(audio.info.bitrate // 1000)
+							tag = MP3(filename, ID3=EasyID3)
+							if tag is not None:
+								album = tag.get("album", ["n/a"])[0]
+								artist = tag.get("artist", ["n/a"])[0]
+								number = tag.get("tracknumber", ["n/a"])[0].split("/")[0]
+								track = tag.get("title", [name])[0]
+								genre = tag.get("genre", ["n/a"])[0]
+								year = tag.get("date", ["n/a"])[0]
+								runtime = str(datetime.timedelta(seconds=int(tag.info.length)))
+								bitrate = str(tag.info.bitrate // 1000)
 								bitrate = bitrate + " kbit/s"
 						except (HeaderNotFoundError, ID3NoHeaderError) as e:
+							print(f"[MP3Browser][databaseUpdate_core] HeaderNotFoundError ID3NoHeaderError:{e}")
 							artist = name
 							track = "Missing ID3 Header"
 							album = "Missing ID3 Header"
@@ -310,8 +313,11 @@ def databaseUpdate_core(MP3Database):
 						bitrateList.append(bitrate)
 						artistntrack = transLYRICSTIME(artist + "-" + track)
 						artistntrack = artistntrack.replace("/", "-")                            
+						print(f"[MP3Browser][databaseUpdate_core] artist:{artist} artistntrack:{artistntrack} album:{album}")
 						poster = join(config.plugins.mp3browser.cachefolder.value, artistntrack + ".jpg")
+
 						if fileExists(poster):
+							print(f"[MP3Browser][databaseUpdate_core] found poster:{poster}")
 							posterurl = poster
 							with open(poster, "rb") as fd:
 								binData = fd.read()
@@ -320,47 +326,51 @@ def databaseUpdate_core(MP3Database):
 								type=PictureType.COVER_FRONT,
 								desc="cover",
 								mime="image/jpeg")
-							audio = ID3(filename)
-							if audio is not None:
+							tag = ID3(filename)
+							if tag is not None:
+								print("[MP3Browser][databaseUpdate_core] found poster .... adding tag filename:{filename}")
 								try:
-									audio.tags.add(apic)
-									audio.tags.save()
+									tag["apic"] = apic
+									tag.save()
 								except Exception as e:
-									pass
-									# print(f"[MP3Browser][databaseUpdate_run]2a artistntrack:{artistntrack} filename:{filename} poster:{poster}, length poster:{len(poster)}") 							
-									# print("[MP3Browser][databaseUpdate_run]2a exception writing tag.add artist", e)                                
+									print(f"[MP3Browser][databaseUpdate_core]2a artistntrack:{artistntrack} filename:{filename} poster:{poster}, length poster:{len(poster)}")
+									print("[MP3Browser][databaseUpdate_core]2a exception writing tag.add artist", e)
 						else:                                                             
 							posterurl = "/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/default.png"
 							try:
-								audio = ID3(filename)
-								poster = audio.getall("APIC")
-								# print(f"[MP3Browser][databaseUpdate_run]1b ID3 filename:{filename} length poster:{len(poster)}")                              
+								tag = ID3(filename)
+								poster = tag.getall("APIC")
+								print(f"[MP3Browser][databaseUpdate_core]1b ID3 filename:{filename} length poster:{len(poster)}")
 							except (HeaderNotFoundError, ID3NoHeaderError) as e:
-								print("[MP3Browser][databaseUpdate_run]1b ID3 Header notfound",  e) 
+								print("[MP3Browser][databaseUpdate_core]1b ID3 Header notfound",  e)
+							print(f"[MP3Browser][databaseUpdate_core] ID3 artist:{artist} poster:{poster}")
 							if len(poster) > 0:
+								print(f"[MP3Browser][databaseUpdate_core] ID3 have poster for artist:{artist} poster:{poster} poster[0]:{poster[0]}")
 								try:
 									mime = poster[0].mime
 									if mime.lower().endswith('png'):
 										ext = '.png'
 									else:
 										ext = '.jpg'
-									artistTrue = artist.split("/")[0]
-									if not exists("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue"):
-										makedirs("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue")
-									posterurl = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ext
-									try:
-										with open(posterurl, 'wb')as fd:
-											fd.write(poster[0].data)
-									except Exception as err:
-										print(f"[MP3Browser][databaseUpdate_run] file write crash as err:{err}")	
-									lastArtist = artist
-									lastPoster = poster[0].data
-									lastPosterUrl = posterurl
-									pngjpeg = mime 
 								except Exception as err:
-									print(f"[MP3Browser][databaseUpdate_run] no mime err:{err}")
-									pass
+									print(f"[MP3Browser][databaseUpdate_core] no mime err:{err}")
+									pass										
+								print(f"[MP3Browser][databaseUpdate_core] mime:{mime} artist:{artist}")
+								artistTrue = artist.split("/")[0]
+								if not exists("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue"):
+									makedirs("config.plugins.mp3browser.cachefolder.value + '/' + artistTrue")
+								posterurl = config.plugins.mp3browser.cachefolder.value + '/' + artistntrack + ext
+								try:
+									with open(posterurl, 'wb')as fd:
+										fd.write(poster[0].data)
+								except Exception as error:
+									print(f"[MP3Browser][databaseUpdate_core] file write crash as {error}")	
+								lastArtist = artist
+								lastPoster = poster[0].data
+								lastPosterUrl = posterurl
+								pngjpeg = mime 
 							else:
+								print(f"[MP3Browser][databaseUpdate_core] no poster try last artist is same {artist}")							
 								if artist == lastArtist:
 									posterurl = lastPosterUrl
 									apic = APIC(data=lastPoster,
@@ -368,44 +378,68 @@ def databaseUpdate_core(MP3Database):
 										type=PictureType.COVER_FRONT,
 										desc="cover",
 										mime=pngjpeg)
-									audio = ID3(filename)
 									try:
-										audio.tags.add(apic)
-										audio.tags.save()
-										print("[MP3Browser][databaseUpdate_run]1b success writing tag.add artist", artist)                                         
-									except Exception as e:
-										pass
-										# print("[MP3Browser][databaseUpdate_run]1b exception writing tag.add artist", e)                
+										tag  = EasyID3(filename)
+									except Exception as error:
+										print(f"[MP3Browser][databaseUpdate_core] tag error as {error}")									
+										tag = mutagen.File(path, easy=True)
+										tag.add_tags()										
+									try:
+										tag["apic"] = apic
+										tag.save()
+										print(f"[MP3Browser][databaseUpdate_core]1b success writing tag.add artist:{artist}")                                         
+									except Exception as error:
+										print(f"[MP3Browser][databaseUpdate_core]1b exception writing tag.add artist-> {error}")
+										pass										                
 						posterList.append(posterurl)
-	for line in data.split("\n"):
-		mp3line = line.split(":::")
-		mp3folder = ""
+	# print(f"[MP3Browser][databaseUpdate_core] inputMP3files:{inputMP3files}")
+	mp3browserDBlist = fileReadLines(MP3Database)
+	for folder in mp3browserData.split("\n"):
+		mp3line = folder.split(":::")
+		mp3Filename = ""
 		if mp3line == " " or len(mp3line) < 5:
-			break     
-		mp3folder = mp3line[1]
-		mp3folder = sub("\\(|\\)|\\[|\\]|\\+|\\?", ".", mp3folder)
-
-		if search(config.plugins.mp3browser.mp3folder.value, mp3folder) is not None and search(mp3folder, allfiles) is None:
+			continue     
+		mp3Filename = mp3line[1]	# location of filename in mp3browser database folder
+		mp3Filename = sub("\\(|\\)|\\[|\\]|\\+|\\?", ".", mp3Filename)
+		mp3FilenameSearch = mp3Filename.replace(".mp3", "").replace(".MP3", "")
+		xx = search(mp3FilenameSearch, inputMP3files)
+		if search(mp3FilenameSearch, inputMP3files) is None:	# search for database folder filename in input files
+			print(f"[MP3Browser][databaseUpdate_core] mp3browser orphaned database mp3Filename:{mp3Filename} xx:{xx}")
 			orphaned += 1
-			data = data.replace(line + "\n", "")
-	fileWriteLine(MP3Database, data)
-	del data
-	del allfiles
+			try:
+				mp3browserDBlist.remove(folder)							# - so remove folder in mp3browser database
+			except Exception as error:
+				print(f"[MP3Browser][databaseUpdate_core] unable to delete folder {folder} from database {error}")
+		else:
+			continue	# if not orphaned
+	if orphaned != 0:
+		fileWriteLines(MP3Database, mp3browserDBlist)
+	del mp3browserDBlist
+	del mp3browserData
+	del inputMP3files
 	dbcount = 0
 	dbcountmax = len(mp3List)-1
-	if len(mp3List) == 0:
-		return(False, 0, 0)
+	print(f"[MP3Browser][databaseUpdate_core] orphaned:{orphaned} dbcountmax:{dbcountmax+1}")	
+	if len(mp3List) == 0:			# no new db folders's
+		databaseSort(MP3Database)	
+		return(False, orphaned, 0)
 	else:
-		f = open(MP3Database, "a")
-		while dbcount <= dbcountmax:
+		dbcount = 0
+		dbcountmax = len(mp3List)
+		print(f"[MP3Browser][databaseUpdate_core] orphaned:{orphaned} dbcountmax:{dbcountmax+1}")
+		f = open(MP3Database, "a")		# open mp3browser database at end of database file
+		while dbcount < dbcountmax:
 			try:
+				print(f"[MP3Browser][databaseUpdate_core] 2 dbcount:{dbcount} dbcountmax:{dbcountmax} nameList[(dbcount)]:{nameList[(dbcount)]} mp3List[(dbcount)]:{mp3List[(dbcount)]}")
 				data = nameList[(dbcount)] + ":::" + mp3List[(dbcount)] + ":::" + dateList[(dbcount)] + ":::" + artistList[(dbcount)] + ":::" + albumList[(dbcount)] + ":::" + numberList[(dbcount )] + ":::" + trackList[(dbcount)] + ":::" + yearList[(dbcount )] + ":::" + genreList[(dbcount)] + ":::" + runtimeList[(dbcount)] + ":::" + bitrateList[(dbcount)] + ":::" + posterList[(dbcount)] + ":::\n"
-				f.write(data)
-			except IndexError as e:
-				print("[MP3Browser][databaseUpdate_run][write database]2 Indexerror",  e)
+				f.write(data)			# write new data at end of database file
+			except IndexError as error:
+				print(f"[MP3Browser][databaseUpdate_core][write database]2 Indexerror {error}")
 			dbcount += 1
-
+		print(f"[MP3Browser][databaseUpdate_core] 3 dbcount:{dbcount} dbcountmax:{dbcountmax}")
 		f.close()
+		databaseSort(MP3Database)
+		dbcountmax +=1
 		return(True, orphaned, dbcountmax)
 
 def databaseSort(database):
@@ -451,7 +485,7 @@ def databaseSort(database):
 		# copyfile(database + ".sorted", database)
 		# remove(database + ".sorted")
 		rename(database + ".sorted", database)	
-		# print(f"[MP3Browser][databaseSort] 2 database.sorted:")
+		print(f"[MP3Browser][databaseSort] 2 database.sorted:")
 
 def filterFolderSetup():
 	max = 25
@@ -836,6 +870,8 @@ class mp3BrowserMetrix(Screen):
 				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
 
 	def databaseUpdate_queryreturn(self, answer):
+		print(f"[MP3BrowserMetrix][databaseUpdate_queryreturn] **** entered answer:{answer} self.ready:{self.ready}")
+		print(f"[MP3BrowserMetrix][databaseUpdate_queryreturn] **** self.database:{self.database}") 
 		if answer is True:
 			self.ready = False
 			if self.mp3list:
@@ -849,6 +885,7 @@ class mp3BrowserMetrix(Screen):
 				self.runTimer.start(500, True)
 
 	def databaseUpdate_run(self):
+		print(f"[MP3BrowserMetrix][databaseUpdate_run] entered")
 		if config.plugins.mp3browser.hideupdate.value == "yes":
 			self.hideScreen()
 		if self.fav == True:
@@ -856,10 +893,8 @@ class mp3BrowserMetrix(Screen):
 			self.database = config.plugins.mp3browser.DBfolder.value
 		returnValue, orphaned, dbcountmax = databaseUpdate_core(self.database)
 		if not returnValue:		
-			self.databaseUpdate_finished(False, 0, 0)
+			self.databaseUpdate_finished(False, orphaned, dbcountmax)
 		else:
-			if dbcountmax !=0:
-				databaseSort(self.database)
 			if self.reset == True:
 				if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
 					self.hideScreen()
@@ -869,7 +904,7 @@ class mp3BrowserMetrix(Screen):
 		return
 
 	def databaseUpdate_finished(self, found, orphaned, dbcountmax):
-		print("[MP3BrowserMetrix][databaseUpdate_finished]")     
+		print(f"[MP3BrowserMetrix][databaseUpdate_finished] ***** found:{found}, orphaned:{orphaned}, dbcountmax:{dbcountmax} filter:{self.filter} self.lastfile:{self.lastfile}")     
 		if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
 			self.hideScreen()
 		mp3 = fileReadLine(self.lastfile)
@@ -882,21 +917,20 @@ class mp3BrowserMetrix(Screen):
 					self.index = count
 					break
 				count += 1
-
 		if self.autoupdate == True:
 			self.autoupdate = False
 			self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 		elif found == False and orphaned == 0:
-			self.session.open(MessageBox, "\nNo new MP3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\nNo new mp3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
-		elif found == False:
-			self.session.open(MessageBox, "\nNo new MP3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
+		elif found == False and orphaned != 0:
+			self.session.open(MessageBox, "\nNo new mp3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif orphaned == 0:
-			self.session.open(MessageBox, "\n%s MP3's imported into Database." % str(self.dbcountmax), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\n%s mp3's imported into Database." % str(dbcountmax), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		else:
-			self.session.open(MessageBox, "\n%s MP3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		return
 
@@ -1194,12 +1228,12 @@ class mp3BrowserMetrix(Screen):
 		else:
 			filename = self.mp3list[self.index]
 			try:
-				audio = ID3(filename)
+				tag = ID3(filename)
 			except ID3NoHeaderError:
 				poster = defaultfolder_png if "default_folder" in posterurl else default_png
 				self["poster"].instance.setPixmapFromFile(posterurl)
 				return
-			poster = audio.getall("APIC")
+			poster = tag.getall("APIC")
 			if len(poster) > 0:
 				f = open(posterurl, "wb")
 				f.write(poster[0].data)
@@ -2412,8 +2446,6 @@ class mp3Browser(Screen):
 		if not returnValue:		
 			self.databaseUpdate_finished(False, 0, 0)
 		else:
-			if dbcountmax != 0:
-				databaseSort(self.database)
 			if self.reset == True:
 				if config.plugins.mp3browser.hideupdate.value == "yes" and self.hideflag == False:
 					self.hideScreen()
@@ -2441,16 +2473,16 @@ class mp3Browser(Screen):
 			self.autoupdate = False
 			self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 		elif found == False and orphaned == 0:
-			self.session.open(MessageBox, "\nNo new MP3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\nNo new mp3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif found == False:
-			self.session.open(MessageBox, "\nNo new MP3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\nNo new mp3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif orphaned == 0:
-			self.session.open(MessageBox, "\n%s MP3's imported into Database." % str(self.dbcountmax), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\n%s mp3's imported into Database." % str(self.dbcountmax), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		else:
-			self.session.open(MessageBox, "\n%s MP3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, "\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		return
 
@@ -2761,8 +2793,8 @@ class mp3Browser(Screen):
 				callInThread(threadGetPage, url=posterurl, success=self.getPoster, file=poster, key=x, fail=self.downloadError)
 			else:
 				filename = self.mp3list[index]
-				audio = ID3(filename)
-				poster = audio.getall("APIC")
+				tag = ID3(filename)
+				poster = tag.getall("APIC")
 				if len(poster) > 0:
 					f = open(posterurl, "wb")
 					f.write(poster[0].data)
