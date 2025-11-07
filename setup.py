@@ -8,7 +8,7 @@ setup (name="enigma2-plugin-extensions-mp3browser",
 	description="Create playable library of MP3 files and their associated information/backgrounds",
 	package_dir={pkg: "src"},
 	packages=[pkg],
-	package_data={pkg: ["db/filter", "db/last", "db/cache/*.png", "font/*.ttf", "pics/browser/*.png",
-	"pics/buttons/*.png", "pics/setup/*.png", "*.png", "*.xml", "locale/*/LC_MESSAGES/*.mo"]},
+	package_data={pkg: ["db/filter", "db/last", "db/cache/*.png", "font/*.ttf", "pic/browser/*.png",
+	"pic/buttons/*.png", "pic/setup/*.png", "*.png", "*.xml", "locale/*/LC_MESSAGES/*.mo"]},
 	cmdclass=setup_translate.cmdclass,  # for translation
 	)
