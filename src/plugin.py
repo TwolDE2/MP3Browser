@@ -562,8 +562,8 @@ class mp3BrowserMetrix(Screen):
 		<widget name="discogsartist" position="70,55" size="560,35" font="Metrix;28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="22" />
 		<widget name="discogs" position="70,100" size="590,540" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="22" />
 		<widget name="googlePoster" position="675,166" size="540,405" alphatest="blend" transparent="1" zPosition="22" />
-		<widget name="poster" position="722,247" size="150,150" zPosition="23" transparent="1" alphatest="blend" />
-		<widget name="posterback" position="675,200" size="245,245" zPosition="22" transparent="1" alphatest="on" />
+		<widget name="poster" position="722,247" size="150,150" zPosition="23" transparent="1" alphatest="blend" scaleFlags="scaleKeepAspect" />
+		<widget name="posterback" position="675,200" size="245,245" zPosition="22" transparent="1" alphatest="on" scaleFlags="scaleKeepAspect" />
 		<widget name="name" position="675,120" size="540,70" font="Metrix;28" foregroundColor="#FFFFFF" valign="center" transparent="1" zPosition="5" />
 		<widget name="Artist" position="950,210" size="125,30" font="Metrix;22" foregroundColor="#BBBBBB" transparent="1" zPosition="6" />
 		<widget name="artist" position="950,240" size="255,30" font="Metrix;22" foregroundColor="#FFFFFF" transparent="1" zPosition="7" />
@@ -2122,10 +2122,7 @@ class mp3Browser(Screen):
 			posY = 6 + numY * (142)
 			self.positionlist.append((posX - 16, posY - 16))
 			skincontent += '<widget name="poster' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-4" transparent="1" alphatest="on" scaleFlags="scaleKeepAspect" />'
-			if factor == 1.5:
-				skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD2.png" />'
-			else:
-				skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD.png" />'	
+			skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-3" transparent="1" alphatest="blend" scaleFlags="scaleKeepAspect" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD2.png" />'
 
 		skinHD = """
 		<screen position="center,center" size="1280,720" flags="wfNoBorder" title="  " >
