@@ -1,5 +1,4 @@
 # Decompiled from: Python 3.10.4 (main, Jun 29 2022, 12:14:53) [GCC 11.2.0]
-# spaces in use not tabs
 
 # This plugin is licensed under the Attribution-NonCommercial-ShareAlike 3.0 Unported (CC BY-NC-SA 3.0).
 # To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/3.0/
