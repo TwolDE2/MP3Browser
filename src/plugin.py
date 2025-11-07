@@ -2111,6 +2111,8 @@ class mp3Browser(Screen):
 		self.positionlist = []
 		skincontent = ""
 		numX = -1
+		factor = getDesktop(0).size().height()/720
+		print(f"[MP3Browser][mp3Browser] factor:{factor}")
 		for x in list(range(self.posterALL)):
 			numY = x // 9
 			numX += 1
@@ -2119,8 +2121,11 @@ class mp3Browser(Screen):
 			posX = 2 + numX * (142)
 			posY = 6 + numY * (142)
 			self.positionlist.append((posX - 16, posY - 16))
-			skincontent += '<widget name="poster' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140, 140" zPosition="-4" transparent="1" alphatest="on" />'
-			skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140, 140" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD.png" />'
+			skincontent += '<widget name="poster' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-4" transparent="1" alphatest="on" scaleFlags="scaleKeepAspect" />'
+			if factor == 1.5:
+				skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD2.png" />'
+			else:
+				skincontent += '<widget name="poster_back' + str(x) + '" position="' + str(posX) + ',' + str(posY) + '" size="140,140" zPosition="-3" transparent="1" alphatest="blend" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/pic/browser/poster_backHD.png" />'	
 
 		skinHD = """
 		<screen position="center,center" size="1280,720" flags="wfNoBorder" title="  " >
@@ -2152,6 +2157,9 @@ class mp3Browser(Screen):
 		color = config.plugins.mp3browser.color.value
 		self.dict = {"font": font, "color": color}
 		self.skin = skinScale(applySkinVars(skinHD, self.dict))
+		# self.skin = applySkinVars(skinHD, self.dict)
+		# print(f"[MP3Browser][mp3Browser] skinHD:{skinHD}")
+		print(f"[MP3Browser][mp3Browser] self.skin:{self.skin}")
 		Screen.__init__(self, session)
 		self.oldService = self.session.nav.getCurrentlyPlayingServiceReference()
 		self.toogleHelp = self.session.instantiateDialog(helpScreen)
