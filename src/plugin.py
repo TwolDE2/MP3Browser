@@ -4557,47 +4557,47 @@ class getABC(Screen):
 
 	def ABC(self):
 		self.Timer.start(2000, True)
-		if self.field.startswith("A") or self.field.startswith("B") or self.field.startswith("C"):
+		if self.field.startswith("A", "B", "C"):
 			self.field = "DEF"
-		elif self.field.startswith("D") or self.field.startswith("E") or self.field.startswith("F"):
+		elif self.field.startswith("D", "E", "F"):
 			self.field = "GHI"
-		elif self.field.startswith("G") or self.field.startswith("H") or self.field.startswith("I"):
+		elif self.field.startswith("G", "H", "I"):
 			self.field = "JKL"
-		elif self.field.startswith("J") or self.field.startswith("K") or self.field.startswith("L"):
+		elif self.field.startswith("J", "K", "L"):
 			self.field = "MNO"
-		elif self.field.startswith("M") or self.field.startswith("N") or self.field.startswith("O"):
+		elif self.field.startswith("M", "N", "O"):
 			self.field = "PQRS"
-		elif self.field.startswith("P") or self.field.startswith("Q") or self.field.startswith("R") or self.field.startswith("S"):
+		elif self.field.startswith("P", "Q", "R", "S"):
 			self.field = "TUV"
-		elif self.field.startswith("T") or self.field.startswith("U") or self.field.startswith("V"):
+		elif self.field.startswith("T", "U", "V"):
 			self.field = "WXYZ"
-		elif self.field.startswith("W") or self.field.startswith("X") or self.field.startswith("Y") or self.field.startswith("Z"):
+		elif self.field.startswith("W", "X", "Y", "Z"):
 			self.field = "ABC"
 		self["ABC"].setText(self.field)
 
 	def WXYZ(self):
 		self.Timer.start(2000, True)
-		if self.field.startswith("W") or self.field.startswith("X") or self.field.startswith("Y") or self.field.startswith("Z"):
+		if self.field.startswith("W", "X", "Y", "Z"):
 			self.field = "TUV"
-		elif self.field.startswith("T") or self.field.startswith("U") or self.field.startswith("V"):
+		elif self.field.startswith("T", "U", "V"):
 			self.field = "PQRS"
-		elif self.field.startswith("P") or self.field.startswith("Q") or self.field.startswith("R") or self.field.startswith("S"):
+		elif self.field.startswith("P", "Q", "S"):
 			self.field = "MNO"
-		elif self.field.startswith("M") or self.field.startswith("N") or self.field.startswith("O"):
+		elif self.field.startswith("M", "N", "O"):
 			self.field = "JKL"
-		elif self.field.startswith("J") or self.field.startswith("K") or self.field.startswith("L"):
+		elif self.field.startswith("J", "K", "L"):
 			self.field = "GHI"
-		elif self.field.startswith("G") or self.field.startswith("H") or self.field.startswith("I"):
+		elif self.field.startswith("G", "H", "I"):
 			self.field = "DEF"
-		elif self.field.startswith("D") or self.field.startswith("E") or self.field.startswith("F"):
+		elif self.field.startswith("D", "E", "F"):
 			self.field = "ABC"
-		elif self.field.startswith("A") or self.field.startswith("B") or self.field.startswith("C"):
+		elif self.field.startswith("A", "B", "C"):
 			self.field = "WXYZ"
 		self["ABC"].setText(self.field)
 
 	def _ABC(self):
 		self.Timer.start(2000, True)
-		if self.field != "A" and self.field != "B" and self.field != "C":
+		if self.field not in ("A", "B", "C"):
 			self.field = "A"
 		elif self.field == "A":
 			self.field = "B"
@@ -4609,7 +4609,7 @@ class getABC(Screen):
 
 	def _DEF(self):
 		self.Timer.start(2000, True)
-		if self.field != "D" and self.field != "E" and self.field != "F":
+		if self.field not in ("D", "E", "F"):
 			self.field = "D"
 		elif self.field == "D":
 			self.field = "E"
@@ -4621,7 +4621,7 @@ class getABC(Screen):
 
 	def _GHI(self):
 		self.Timer.start(2000, True)
-		if self.field != "G" and self.field != "H" and self.field != "I":
+		if self.field not in ("G", "H", "I"):
 			self.field = "G"
 		elif self.field == "G":
 			self.field = "H"
@@ -4633,7 +4633,7 @@ class getABC(Screen):
 
 	def _JKL(self):
 		self.Timer.start(2000, True)
-		if self.field != "J" and self.field != "K" and self.field != "L":
+		if self.field not in ("J", "K", "L"):
 			self.field = "J"
 		elif self.field == "J":
 			self.field = "K"
@@ -4645,7 +4645,7 @@ class getABC(Screen):
 
 	def _MNO(self):
 		self.Timer.start(2000, True)
-		if self.field != "M" and self.field != "N" and self.field != "O":
+		if self.field not in ("M", "N", "O"):
 			self.field = "M"
 		elif self.field == "M":
 			self.field = "N"
@@ -4657,7 +4657,7 @@ class getABC(Screen):
 
 	def _PQRS(self):
 		self.Timer.start(2000, True)
-		if self.field != "P" and self.field != "Q" and self.field != "R" and self.field != "S":
+		if self.field not in ("P", "Q", "R", "S"):
 			self.field = "P"
 		elif self.field == "P":
 			self.field = "Q"
@@ -4671,7 +4671,7 @@ class getABC(Screen):
 
 	def _TUV(self):
 		self.Timer.start(2000, True)
-		if self.field != "T" and self.field != "U" and self.field != "V":
+		if self.field not in (T", "U", "V"):
 			self.field = "T"
 		elif self.field == "T":
 			self.field = "U"
@@ -4683,7 +4683,7 @@ class getABC(Screen):
 
 	def _WXYZ(self):
 		self.Timer.start(2000, True)
-		if self.field != "W" and self.field != "X" and self.field != "Y" and self.field != "Z":
+		if self.field not in ("W", "X", "Y", "Z"):
 			self.field = "W"
 		elif self.field == "W":
 			self.field = "X"
