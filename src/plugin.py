@@ -4671,7 +4671,7 @@ class getABC(Screen):
 
 	def _TUV(self):
 		self.Timer.start(2000, True)
-		if self.field not in (T", "U", "V"):
+		if self.field not in ("T", "U", "V"):
 			self.field = "T"
 		elif self.field == "T":
 			self.field = "U"
