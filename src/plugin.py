@@ -629,14 +629,14 @@ class mp3BrowserMetrix(Screen):
 		self.bitratelist = []
 		self.genrelist = []
 		self.posterlist = []
-		self["Artist"] = Label("Artist:")
-		self["Number"] = Label("Track#:")
-		self["Track"] = Label("Track:")
-		self["Year"] = Label("Year:")
-		self["Runtime"] = Label("Runtime:")
-		self["Album"] = Label("Album:")
-		self["Bitrate"] = Label("Bitrate:")
-		self["Genre"] = Label("Genre:")
+		self["Artist"] = Label(_("Artist:"))
+		self["Number"] = Label(_("Track#:"))
+		self["Track"] = Label(_("Track:"))
+		self["Year"] = Label(_("Year:"))
+		self["Runtime"] = Label(_("Runtime:"))
+		self["Album"] = Label(_("Album:"))
+		self["Bitrate"] = Label(_("Bitrate:"))
+		self["Genre"] = Label(_("Genre:"))
 		self["name"] = Label()
 		self["artist"] = Label()
 		self["album"] = Label()
@@ -646,9 +646,9 @@ class mp3BrowserMetrix(Screen):
 		self["runtime"] = Label()
 		self["bitrate"] = Label()
 		self["genre"] = Label()
-		self["text1"] = Label("Help")
-		self["text2"] = Label("Update")
-		self["text3"] = Label("Edit")
+		self["text1"] = Label(_("Help"))
+		self["text2"] = Label(_("Update"))
+		self["text3"] = Label(_("Edit"))
 		self["metrixback"] = Pixmap()
 		self["metrixback2"] = Pixmap()
 		self["poster"] = Pixmap()
@@ -804,9 +804,9 @@ class mp3BrowserMetrix(Screen):
 	def openInfo(self):
 		print("[MP3BrowserMetrix][checkDB] **** openInfo entered")	
 		if fileExists("/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset"):
-			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, _("The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?"), MessageBox.TYPE_YESNO)
 		else:
-			self.session.openWithCallback(self.databaseInitialisation, MessageBox, "Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation, MessageBox, _("Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick."), MessageBox.TYPE_YESNO)
 
 	def checkConfig(self):
 		print("[MP3BrowserMetrix][checkConfig] **** return from Browser setup")	
@@ -862,11 +862,11 @@ class mp3BrowserMetrix(Screen):
 		print(f"[MP3BrowserMetrix][databaseUpdate] **** entered")
 		if self.ready == True:
 			if exists(config.plugins.mp3browser.mp3folder.value) and exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
+				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, _("\nUpdate MP3 Browser Database?"), MessageBox.TYPE_YESNO)
 			elif exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.open(MessageBox, "\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+				self.session.open(MessageBox, _("\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled.") % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
 			else:
-				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+				self.session.open(MessageBox, _("\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled.") % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
 
 	def databaseUpdate_queryreturn(self, answer):
 		print(f"[MP3BrowserMetrix][databaseUpdate_queryreturn] **** entered answer:{answer} self.ready:{self.ready}")
@@ -920,16 +920,16 @@ class mp3BrowserMetrix(Screen):
 			self.autoupdate = False
 			self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 		elif found == False and orphaned == 0:
-			self.session.open(MessageBox, "\nNo new mp3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\nNo new mp3's found:\nYour Database is up to date."), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif found == False and orphaned != 0:
-			self.session.open(MessageBox, "\nNo new mp3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\nNo new mp3's found.\n%s orphaned Database Entries deleted.") % str(orphaned), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif orphaned == 0:
-			self.session.open(MessageBox, "\n%s mp3's imported into Database." % str(dbcountmax), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\n%s mp3's imported into Database.") % str(dbcountmax), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		else:
-			self.session.open(MessageBox, "\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted.") % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		return
 
@@ -985,7 +985,7 @@ class mp3BrowserMetrix(Screen):
 					self.bitratelist.append(bitrate)
 					self.posterlist.append(poster)
 			if self.showfolder == True:
-				self.namelist.append("<List of MP3 Folder>")
+				self.namelist.append(_("<List of MP3 Folder>"))
 				self.mp3list.append(config.plugins.mp3browser.mp3folder.value + "...")
 				self.datelist.append("")
 				self.artistlist.append("")
@@ -1022,7 +1022,7 @@ class mp3BrowserMetrix(Screen):
 			self.makePoster()
 			self.makeInfo()
 			
-# toggle 0,1,2 choices=[("oninfo", "Info Button"), ("info", "Show Info"), ("always", "Show Info & Lyrics")
+# toggle 0,1,2 choices=[(_("oninfo"), _("Info Button")), (_("info"), _("Show Info")), (_("always"), _("Show Info & Lyrics"))
 			if self.toggle == 1:
 				self.hideList()
 				self.getLyrics()
@@ -1076,7 +1076,7 @@ class mp3BrowserMetrix(Screen):
 			if self.toggle == 0:
 				try:
 					name = self.namelist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?" % name, MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?") % name, MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3BrowserMetrix][deleteMP3   ] Indexerror",  e)
 
@@ -1084,14 +1084,14 @@ class mp3BrowserMetrix(Screen):
 				try:
 					self.artist = self.artistlist[self.index]
 					self.track = self.tracklist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?" % (self.artist, self.track), MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?") % (self.artist, self.track), MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3BrowserMetrix][deleteMP3   ] Indexerror",  e)
 
 			elif self.toggle == 2:
 				try:
 					self.artist = self.artistlist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?" % self.artist, MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?") % self.artist, MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3BrowserMetrix][deleteMP3   ] Indexerror",  e)
 
@@ -1298,7 +1298,7 @@ class mp3BrowserMetrix(Screen):
 	def makeJpgerror(self, output, *args, **kwargs):
 		self.DiscogsNotBusy = False
 		print("[MP3BrowserMetrix][makeJpgerror] Entered, output ", output)            
-		self.session.open(MessageBox, "[MP3Browser][makeJpg] Too many calls to discogs.com.", MessageBox.TYPE_INFO, timeout=20)
+		self.session.open(MessageBox, _("[MP3Browser][makeJpg] Too many calls to discogs.com."), MessageBox.TYPE_INFO, timeout=20)
 		self.makePoster2()
 
 	def getLyrics(self):
@@ -2213,14 +2213,14 @@ class mp3Browser(Screen):
 		self.bitratelist = []
 		self.genrelist = []
 		self.posterlist = []
-		self["Artist"] = Label("Artist:")
-		self["Number"] = Label("Track#:")
-		self["Track"] = Label("Track:")
-		self["Year"] = Label("Year:")
-		self["Runtime"] = Label("Runtime:")
-		self["Album"] = Label("Album:")
-		self["Bitrate"] = Label("Bitrate:")
-		self["Genre"] = Label("Genre:")
+		self["Artist"] = Label(_)("Artist:")
+		self["Number"] = Label(_("Track#:"))
+		self["Track"] = Label(_("Track:"))
+		self["Year"] = Label(_("Year:"))
+		self["Runtime"] = Label(_("Runtime:"))
+		self["Album"] = Label(_("Album:"))
+		self["Bitrate"] = Label(_("Bitrate:"))
+		self["Genre"] = Label(_("Genre:"))
 		self["name"] = Label()
 		self["artist"] = Label()
 		self["album"] = Label()
@@ -2357,9 +2357,9 @@ class mp3Browser(Screen):
 	def openInfo(self):
 		print("[MP3Browser][checkDB] **** openInfo entered")	
 		if fileExists("/usr/lib/enigma2/python/Plugins/Extensions/MP3Browser/db/reset"):
-			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, "The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation_queryreturn, MessageBox, _("The MP3 Browser Database will be build now. Depending on the number of your mp3s this can take several minutes.\n\nBuild MP3 Browser Database now?"), MessageBox.TYPE_YESNO)
 		else:
-			self.session.openWithCallback(self.databaseInitialisation, MessageBox, "Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick.", MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.databaseInitialisation, MessageBox, _("Before the Database will be build, check your settings in the setup of the plugin:\n\n- Check the path to the MP3 Folder\n- Change the Cache Folder to your hard disk drive or usb stick."), MessageBox.TYPE_YESNO)
 
 	def checkConfig(self):
 		print("[MP3Browser][checkConfig] **** return from Browser setup")	
@@ -2415,11 +2415,11 @@ class mp3Browser(Screen):
 		print(f"[MP3Browser][databaseUpdate] **** entered")
 		if self.ready == True:
 			if exists(config.plugins.mp3browser.mp3folder.value) and exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, "\nUpdate MP3 Browser Database?", MessageBox.TYPE_YESNO)
+				self.session.openWithCallback(self.databaseUpdate_queryreturn, MessageBox, _("\nUpdate MP3 Browser Database?"), MessageBox.TYPE_YESNO)
 			elif exists(config.plugins.mp3browser.cachefolder.value):
-				self.session.open(MessageBox, "\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
+				self.session.open(MessageBox, _("\nMP3 Folder %s not reachable:\nMP3 Browser Database Update canceled.") % str(config.plugins.mp3browser.mp3folder.value), MessageBox.TYPE_ERROR)
 			else:
-				self.session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled." % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
+				self.session.open(MessageBox, _("\nCache Folder %s not reachable:\nMP3 Browser Database Update canceled.") % str(config.plugins.mp3browser.cachefolder.value), MessageBox.TYPE_ERROR)
 
 	def databaseUpdate_queryreturn(self, answer):
 		if answer is True:
@@ -2469,16 +2469,16 @@ class mp3Browser(Screen):
 			self.autoupdate = False
 			self.makeMP3BrowserTimer.callback.append(self.makeMP3(self.filter))
 		elif found == False and orphaned == 0:
-			self.session.open(MessageBox, "\nNo new mp3's found:\nYour Database is up to date.", MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\nNo new mp3's found:\nYour Database is up to date."), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif found == False:
-			self.session.open(MessageBox, "\nNo new mp3's found.\n%s orphaned Database Entries deleted." % str(orphaned), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\nNo new mp3's found.\n%s orphaned Database Entries deleted.") % str(orphaned), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		elif orphaned == 0:
-			self.session.open(MessageBox, "\n%s mp3's imported into Database." % str(self.dbcountmax), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\n%s mp3's imported into Database.") % str(self.dbcountmax), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		else:
-			self.session.open(MessageBox, "\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted." % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
+			self.session.open(MessageBox, _("\n%s mp3's imported into Database.\n%s orphaned Database Entries deleted.") % (str(dbcountmax), str(orphaned)), MessageBox.TYPE_INFO)
 			self.makeMP3(self.filter)
 		return
 
@@ -2656,7 +2656,7 @@ class mp3Browser(Screen):
 			if self.toggle == 0 or self.toggle == 1:
 				try:
 					name = self.namelist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?" % name, MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete %s from the Database and from the MP3 Folder!\n\nDo you want to continue?") % name, MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3Browser][deleteMP3   ] Indexerror",  e)
 
@@ -2664,14 +2664,14 @@ class mp3Browser(Screen):
 				try:
 					self.artist = self.artistlist[self.index]
 					self.track = self.tracklist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?" % (self.artist, self.track), MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete the Lyrics of %s - %s!\n\nDo you want to continue?") % (self.artist, self.track), MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3Browser][deletMP3   ] Indexerror",  e)
 
 			elif self.toggle == 3:
 				try:
 					self.artist = self.artistlist[self.index]
-					self.session.openWithCallback(self.deleteMP3_return, MessageBox, "\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?" % self.artist, MessageBox.TYPE_YESNO)
+					self.session.openWithCallback(self.deleteMP3_return, MessageBox, _("\nThis will delete the Discogs Information and Google Poster of %s!\n\nDo you want to continue?") % self.artist, MessageBox.TYPE_YESNO)
 				except IndexError as e:
 					print("[MP3Browser][deleteMP3   ] Indexerror",  e)
 
@@ -3560,7 +3560,7 @@ class mp3Browser(Screen):
 
 	def showPath(self):
 		if self.ready == True:
-			self.session.open(MessageBox, "\nMP3 File:\n%s" % self.mp3list[self.index], MessageBox.TYPE_INFO, close_on_any_key=True)
+			self.session.open(MessageBox, _("\nMP3 File:\n%s") % self.mp3list[self.index], MessageBox.TYPE_INFO, close_on_any_key=True)
 
 	def getIndex(self, list):
 		return list.getSelectedIndex()
@@ -3761,15 +3761,15 @@ class mp3DatabaseStart(Screen):
 
 	def makeList2(self):
 		self.list2 = []
-		self.list2.append("Artist: " + self.artistlist[self.index])
-		self.list2.append("Album: " + self.albumlist[self.index])
-		self.list2.append("Year: " + self.yearlist[self.index])
-		self.list2.append("Track: " + self.tracklist[self.index])
-		self.list2.append("Number: " + self.numberlist[self.index])
-		self.list2.append("Runtime: " + self.runtimelist[self.index])
-		self.list2.append("Bitrate: " + self.bitratelist[self.index])
-		self.list2.append("Genre: " + self.genrelist[self.index])
-		self.list2.append("Cover: " + self.posterlist[self.index])
+		self.list2.append(_("Artist: ") + self.artistlist[self.index])
+		self.list2.append(_("Album: ") + self.albumlist[self.index])
+		self.list2.append(_("Year: ") + self.yearlist[self.index])
+		self.list2.append(_("Track: ") + self.tracklist[self.index])
+		self.list2.append(_("Number: ") + self.numberlist[self.index])
+		self.list2.append(_("Runtime: ") + self.runtimelist[self.index])
+		self.list2.append(_("Bitrate: ") + self.bitratelist[self.index])
+		self.list2.append(_("Genre: ") + self.genrelist[self.index])
+		self.list2.append(_("Cover: ") + self.posterlist[self.index])
 		self.list2entries = []
 		idx = 0
 		for x in self.list2:
@@ -4799,20 +4799,20 @@ class switchScreen(Screen):
 		self["select_1"].hide()
 		self["select_2"].hide()
 		if mode == "style":
-			self["label_1"] = Label("METRIX")
-			self["label_2"] = Label("COVERWALL")
-			self["label_select_1"] = Label("METRIX")
-			self["label_select_2"] = Label("COVERWALL")
+			self["label_1"] = Label(_("METRIX"))
+			self["label_2"] = Label(_("COVERWALL"))
+			self["label_select_1"] = Label(_("METRIX"))
+			self["label_select_2"] = Label(_("COVERWALL"))
 		elif mode == "shuffle":
-			self["label_1"] = Label("NORMAL")
-			self["label_2"] = Label("SHUFFLE")
-			self["label_select_1"] = Label("NORMAL")
-			self["label_select_2"] = Label("SHUFFLE")
+			self["label_1"] = Label(_("NORMAL"))
+			self["label_2"] = Label(_("SHUFFLE"))
+			self["label_select_1"] = Label(_("NORMAL"))
+			self["label_select_2"] = Label(_("SHUFFLE"))
 		else:
-			self["label_1"] = Label("NORMAL")
-			self["label_2"] = Label("SCREENSAVER")
-			self["label_select_1"] = Label("NORMAL")
-			self["label_select_2"] = Label("SCREENSAVER")
+			self["label_1"] = Label(_("NORMAL"))
+			self["label_2"] = Label(_("SCREENSAVER"))
+			self["label_select_1"] = Label(_("NORMAL"))
+			self["label_select_2"] = Label(_("SCREENSAVER"))
 		self["label_select_1"].hide()
 		self["label_select_2"].hide()
 		self.number = number
@@ -4929,8 +4929,8 @@ class mp3Fav(Screen):
 		self.favlist = []
 		self.faventries = []
 		self["favmenu"] = ItemList([])
-		self["label"] = Label("= Remove Favorite")
-		self["label2"] = Label("0/1 = Move to End/First")
+		self["label"] = Label(_("= Remove Favorite"))
+		self["label2"] = Label(_("0/1 = Move to End/First"))
 		self["actions"] = ActionMap(["OkCancelActions", "DirectionActions", "ColorActions", "HelpActions", "NumberActions"], {"ok": self.exit, 
 			"cancel": self.exit, 
 			"right": self.rightDown, 
@@ -4988,7 +4988,7 @@ class mp3Fav(Screen):
 			except IndexError as e:
 				name = ""
 
-			self.session.openWithCallback(self.red_return, MessageBox, "\nDelete MP3 %s from Favourites?" % name, MessageBox.TYPE_YESNO)
+			self.session.openWithCallback(self.red_return, MessageBox, _("\nDelete MP3 %s from Favourites?") % name, MessageBox.TYPE_YESNO)
 
 	def red_return(self, answer):
 		if answer is True:
@@ -5149,7 +5149,7 @@ class helpScreen(Screen):
 		self.skin = applySkinVars(helpScreen.skin, self.dict)
 		Screen.__init__(self, session)
 		self.setTitle("MP3 Browser Key Assignment")
-		self["label"] = Label("     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list")
+		self["label"] = Label(_("     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list"))
 		self["actions"] = ActionMap(["OkCancelActions"], 
 			{"ok": self.close, 
 		   "cancel": self.close}, -1)
@@ -5173,7 +5173,7 @@ class infoScreenMP3Browser(Screen):
 		self.skin = applySkinVars(helpScreen.skin, self.dict)
 		Screen.__init__(self, session)
 		self.setTitle("MP3 Browser Key Assignment")
-		self["label"] = Label("     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list")
+		self["label"] = Label(_("     : Change Screen\n     : MP3 List\n     : Browser Setup\n     : \n\nInfo Button: ChartLyrics/Discogs\nVideo Button: Update Database\nText Button: Edit Database\nRadio Button: Delete MP3\\Lyrics\\Discogs\n<- -> Button: Go to first letter\nButton 1: Show list of all MP3s\nButton 2: Screensaver on/off\nButton 3: Favourites\nButton 4: Search Cover on Google\nButton 5: MP3 Shuffle on/off\nButton 6: MP3 Folder Selection\nButton 7: MP3 Artist Selection\nButton 8: MP3 Album Selection\nButton 9: MP3 Genre Selection\nButton 0: Go to end of list"))
 		self["actions"] = ActionMap(["OkCancelActions"], 
 			{"ok": self.close, 
 		   "cancel": self.close}, -1)
@@ -5292,21 +5292,21 @@ class mp3BrowserConfig(Setup):
 						print("[MP3Browser][UpdateComponents] OSEerror",  e)
 
 					fileWriteLine(self.cachefolder + "/backup/database", "data")
-					SessionObject().session.open(MessageBox, "\nDatabase backuped to %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
+					SessionObject().session.open(MessageBox, _("\nDatabase backuped to %s") % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					SessionObject().session.open(MessageBox, "\nDatabase %s not found:\nMP3 Browser Database Backup canceled." % str(self.database), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, _("\nDatabase %s not found:\nMP3 Browser Database Backup canceled.") % str(self.database), MessageBox.TYPE_ERROR)
 			else:
-				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Backup canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, _("\nCache Folder %s not reachable:\nMP3 Browser Database Backup canceled.") % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		elif current[0] == "Restore Database:":
 			if exists(self.cachefolder):
 				if fileExists(self.cachefolder + "/backup/database"):
 					data = fileReadLine(self.cachefolder + "/backup/database")
 					fileWriteLine(self.database, "data")
-					SessionObject().session.open(MessageBox, "\nDatabase restored from %s" % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
+					SessionObject().session.open(MessageBox, _("\nDatabase restored from %s") % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					SessionObject().session.open(MessageBox, "\nDatabase Backup %s not found:\nMP3 Browser Database Restore canceled." % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, _("\nDatabase Backup %s not found:\nMP3 Browser Database Restore canceled.") % str(self.cachefolder + "/backup/database"), MessageBox.TYPE_ERROR)
 			else:
-				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nMP3 Browser Database Restore canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, ("\nCache Folder %s not reachable:\nMP3 Browser Database Restore canceled.") % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		elif current[0] == "Cleanup Cache Folder:":
 			if exists(self.cachefolder):
 				if fileExists(self.database):
@@ -5326,13 +5326,13 @@ class mp3BrowserConfig(Setup):
 
 					del data
 					if count == 0:
-						SessionObject().session.open(MessageBox, "\nNo orphaned Covers, Lyrics or Discogs Infos found:\nYour Cache Folder is clean.", MessageBox.TYPE_INFO, close_on_any_key=True)
+						SessionObject().session.open(MessageBox, _("\nNo orphaned Covers, Lyrics or Discogs Infos found:\nYour Cache Folder is clean."), MessageBox.TYPE_INFO, close_on_any_key=True)
 					else:
-						SessionObject().session.open(MessageBox, "\nCleanup Cache Folder finished:\n%s orphaned Covers, Lyrics or Discogs Infos removed." % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
+						SessionObject().session.open(MessageBox, _("\nCleanup Cache Folder finished:\n%s orphaned Covers, Lyrics or Discogs Infos removed.") % str(count), MessageBox.TYPE_INFO, close_on_any_key=True)
 				else:
-					SessionObject().session.open(MessageBox, "\nDatabase %s not found:\nCleanup Cache Folder canceled." % str(self.database), MessageBox.TYPE_ERROR)
+					SessionObject().session.open(MessageBox, _("\nDatabase %s not found:\nCleanup Cache Folder canceled.") % str(self.database), MessageBox.TYPE_ERROR)
 			else:
-				SessionObject().session.open(MessageBox, "\nCache Folder %s not reachable:\nCleanup Cache Folder canceled." % str(self.cachefolder), MessageBox.TYPE_ERROR)
+				SessionObject().session.open(MessageBox, _("\nCache Folder %s not reachable:\nCleanup Cache Folder canceled.") % str(self.cachefolder), MessageBox.TYPE_ERROR)
 		return
 
 
