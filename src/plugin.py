@@ -2213,7 +2213,7 @@ class mp3Browser(Screen):
 		self.bitratelist = []
 		self.genrelist = []
 		self.posterlist = []
-		self["Artist"] = Label(_)("Artist:")
+		self["Artist"] = Label(_("Artist:")
 		self["Number"] = Label(_("Track#:"))
 		self["Track"] = Label(_("Track:"))
 		self["Year"] = Label(_("Year:"))
